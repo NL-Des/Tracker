@@ -31,5 +31,6 @@ pub fn collect() -> MotherboardInfo {
         bios_version: parse_field(&text, "Boot ROM Version"),
         bios_date: None,
         machine_uuid: parse_field(&text, "Hardware UUID"),
+        secure_boot: None,
     }
 }

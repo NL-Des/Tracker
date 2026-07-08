@@ -67,4 +67,8 @@ impl SystemReport {
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         std::fs::write(path, json)
     }
+
+    pub fn save_markdown(&self, path: &Path) -> std::io::Result<()> {
+        std::fs::write(path, crate::markdown::generate(self))
+    }
 }

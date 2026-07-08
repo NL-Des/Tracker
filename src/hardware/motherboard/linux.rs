@@ -20,5 +20,6 @@ pub fn collect() -> MotherboardInfo {
         bios_version: read_dmi_field("bios_version"),
         bios_date: read_dmi_field("bios_date"),
         machine_uuid: read_dmi_field("product_uuid"),
+        secure_boot: None,
     }
 }

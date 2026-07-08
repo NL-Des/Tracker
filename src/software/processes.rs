@@ -12,15 +12,13 @@ pub struct ProcessInfo {
 #[derive(Serialize)]
 pub struct ProcessSummary {
     pub total_count: usize,
-    /// Processus utilisant plus de 5% de CPU au moment de la mesure.
-    pub high_cpu_processes: Vec<ProcessInfo>,
+    pub processes: Vec<ProcessInfo>,
 }
 
 pub fn collect(sys: &System) -> ProcessSummary {
-    let high_cpu_processes = sys
+    let mut processes: Vec<ProcessInfo> = sys
         .processes()
         .iter()
-        .filter(|(_, process)| process.cpu_usage() > 5.0)
         .map(|(pid, process)| ProcessInfo {
             pid: pid.as_u32(),
             name: process.name().to_string_lossy().to_string(),
@@ -28,9 +26,10 @@ pub fn collect(sys: &System) -> ProcessSummary {
             memory_mb: process.memory() / 1024 / 1024,
         })
         .collect();
+    processes.sort_by(|a, b| b.cpu_usage_percent.total_cmp(&a.cpu_usage_percent));
 
     ProcessSummary {
         total_count: sys.processes().len(),
-        high_cpu_processes,
+        processes,
     }
 }

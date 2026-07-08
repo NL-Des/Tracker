@@ -11,6 +11,7 @@ pub struct MonitorInfo {
     pub scale_factor: f32,
     pub frequency_hz: f32,
     pub is_primary: bool,
+    pub is_builtin: bool,
 }
 
 /// Infaillible par design : environnement headless/SSH ou Wayland non
@@ -28,6 +29,7 @@ pub fn collect() -> Vec<MonitorInfo> {
             scale_factor: display.scale_factor,
             frequency_hz: display.frequency,
             is_primary: display.is_primary,
+            is_builtin: display.is_builtin,
         })
         .collect()
 }

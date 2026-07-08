@@ -1,6 +1,7 @@
 mod browsers;
 mod display;
 mod hardware;
+mod markdown;
 mod report;
 mod software;
 
@@ -16,5 +17,11 @@ fn main() {
     match report.save_json(json_path) {
         Ok(()) => println!("\nRapport JSON exporté vers {}", json_path.display()),
         Err(e) => eprintln!("\nErreur lors de l'export JSON : {e}"),
+    }
+
+    let markdown_path = Path::new("tracker_report.md");
+    match report.save_markdown(markdown_path) {
+        Ok(()) => println!("Rapport Markdown exporté vers {}", markdown_path.display()),
+        Err(e) => eprintln!("Erreur lors de l'export Markdown : {e}"),
     }
 }
