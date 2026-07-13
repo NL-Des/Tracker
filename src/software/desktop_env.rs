@@ -1,5 +1,4 @@
 use serde::Serialize;
-use std::process::Command;
 
 #[derive(Serialize)]
 pub struct DesktopEnvironmentInfo {
@@ -13,10 +12,10 @@ fn env_var(key: &str) -> Option<String> {
     std::env::var(key).ok().filter(|v| !v.is_empty())
 }
 
+/// Statut de sortie non vérifié ici (comportement existant conservé).
 #[cfg(target_os = "linux")]
-fn read_timezone() -> Option<String> {
-    let output = Command::new("timedatectl").output().ok()?;
-    let text = String::from_utf8_lossy(&output.stdout);
+fn read_timezone_linux() -> Option<String> {
+    let text = crate::command::run_lenient("timedatectl", &[])?;
     text.lines().find_map(|line| {
         line.trim()
             .strip_prefix("Time zone:")
@@ -24,9 +23,8 @@ fn read_timezone() -> Option<String> {
     })
 }
 
-#[cfg(not(target_os = "linux"))]
 fn read_timezone() -> Option<String> {
-    None
+    crate::os_dispatch::dispatch_os!(read_timezone_linux(), None, None, None)
 }
 
 /// Infaillible par design : variables d'environnement/commande absentes

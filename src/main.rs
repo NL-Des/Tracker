@@ -1,7 +1,9 @@
 mod browsers;
+mod command;
 mod display;
 mod hardware;
 mod markdown;
+mod os_dispatch;
 mod report;
 mod software;
 

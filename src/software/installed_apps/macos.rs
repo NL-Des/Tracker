@@ -1,7 +1,6 @@
 use super::InstalledAppInfo;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 fn applications_dirs() -> Vec<PathBuf> {
     let mut dirs = vec![PathBuf::from("/Applications")];
@@ -12,20 +11,13 @@ fn applications_dirs() -> Vec<PathBuf> {
 }
 
 fn plist_value(bundle_path: &Path, key: &str) -> Option<String> {
-    let plist_path = bundle_path.join("Contents/Info.plist");
-    let output = Command::new("plutil")
-        .args(["-extract", key, "raw", "-o", "-"])
-        .arg(&plist_path)
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let plist_path = bundle_path.join("Contents/Info.plist").to_string_lossy().into_owned();
+    let text = crate::command::run("plutil", &["-extract", key, "raw", "-o", "-", &plist_path])?;
+    let text = text.trim();
     if text.is_empty() {
         None
     } else {
-        Some(text)
+        Some(text.to_string())
     }
 }
 

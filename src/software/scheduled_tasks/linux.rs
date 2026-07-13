@@ -1,16 +1,11 @@
 use super::ScheduledTaskInfo;
-use std::process::Command;
 
 /// `crontab -l` sur son propre crontab ne nécessite pas de droits root.
 /// Absence de crontab (code de sortie non nul) traitée comme une liste vide.
 pub fn collect() -> Vec<ScheduledTaskInfo> {
-    let Ok(output) = Command::new("crontab").arg("-l").output() else {
+    let Some(text) = crate::command::run("crontab", &["-l"]) else {
         return Vec::new();
     };
-    if !output.status.success() {
-        return Vec::new();
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
 
     text.lines()
         .map(str::trim)

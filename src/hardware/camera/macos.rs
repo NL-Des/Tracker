@@ -1,17 +1,9 @@
 use super::CameraInfo;
-use std::process::Command;
 
 pub fn collect() -> Vec<CameraInfo> {
-    let Ok(output) = Command::new("system_profiler")
-        .arg("SPCameraDataType")
-        .output()
-    else {
+    let Some(text) = crate::command::run("system_profiler", &["SPCameraDataType"]) else {
         return Vec::new();
     };
-    if !output.status.success() {
-        return Vec::new();
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
 
     // Les noms de caméras sont les lignes indentées de 4 espaces se
     // terminant par ':' sans valeur (contrairement aux lignes de propriétés,

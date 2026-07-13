@@ -1,6 +1,5 @@
 use super::PeripheralInfo;
 use std::fs;
-use std::process::Command;
 
 /// Le pseudo-fichier /proc/bus/input/devices liste tous les périphériques
 /// d'entrée par blocs séparés par une ligne vide, avec une ligne
@@ -27,17 +26,10 @@ fn keyboards() -> Vec<PeripheralInfo> {
 fn speakers() -> Vec<PeripheralInfo> {
     // LC_ALL=C : force une sortie anglaise pour un parsing fiable quelle que
     // soit la locale du système (ex: "Description :" en français).
-    let Ok(output) = Command::new("pactl")
-        .args(["list", "sinks"])
-        .env("LC_ALL", "C")
-        .output()
+    let Some(text) = crate::command::run_with_env("pactl", &["list", "sinks"], &[("LC_ALL", "C")])
     else {
         return Vec::new();
     };
-    if !output.status.success() {
-        return Vec::new();
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
 
     text.lines()
         .filter_map(|line| line.trim().strip_prefix("Description: "))
@@ -53,17 +45,11 @@ fn speakers() -> Vec<PeripheralInfo> {
 /// sont pas des micros mais une boucle de retour des sorties audio) et
 /// `Description:` (pour l'affichage) au sein d'un même bloc.
 fn microphones() -> Vec<PeripheralInfo> {
-    let Ok(output) = Command::new("pactl")
-        .args(["list", "sources"])
-        .env("LC_ALL", "C")
-        .output()
+    let Some(text) =
+        crate::command::run_with_env("pactl", &["list", "sources"], &[("LC_ALL", "C")])
     else {
         return Vec::new();
     };
-    if !output.status.success() {
-        return Vec::new();
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
 
     let mut microphones = Vec::new();
     let mut current_is_monitor = false;

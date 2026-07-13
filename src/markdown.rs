@@ -50,21 +50,13 @@ fn write_software(md: &mut String, report: &SystemReport) {
     writeln!(md, "| Uptime (secondes) | {} |", os.uptime_seconds).unwrap();
     writeln!(md).unwrap();
 
-    writeln!(md, "### Comptes utilisateurs ({})", software.users.len()).unwrap();
-    writeln!(md, "| Nom | UID | GID | Groupes |").unwrap();
-    writeln!(md, "|---|---|---|---|").unwrap();
-    for user in &software.users {
-        writeln!(
-            md,
-            "| {} | {} | {} | {} |",
-            user.name,
-            user.uid,
-            user.gid,
-            user.groups.join(", ")
-        )
-        .unwrap();
-    }
-    writeln!(md).unwrap();
+    simple_list_section(
+        md,
+        "Comptes utilisateurs",
+        "| Nom | UID | GID | Groupes |\n|---|---|---|---|",
+        &software.users,
+        |u| format!("| {} | {} | {} | {} |", u.name, u.uid, u.gid, u.groups.join(", ")),
+    );
 
     writeln!(
         md,
@@ -79,26 +71,21 @@ fn write_software(md: &mut String, report: &SystemReport) {
     }
     writeln!(md).unwrap();
 
-    writeln!(
+    simple_list_section(
         md,
-        "### Applications installées ({})",
-        software.installed_apps.len()
-    )
-    .unwrap();
-    writeln!(md, "| Nom | Version | Éditeur | Source |").unwrap();
-    writeln!(md, "|---|---|---|---|").unwrap();
-    for app in &software.installed_apps {
-        writeln!(
-            md,
-            "| {} | {} | {} | {} |",
-            app.name,
-            app.version.as_deref().unwrap_or("?"),
-            app.publisher.as_deref().unwrap_or("?"),
-            app.source
-        )
-        .unwrap();
-    }
-    writeln!(md).unwrap();
+        "Applications installées",
+        "| Nom | Version | Éditeur | Source |\n|---|---|---|---|",
+        &software.installed_apps,
+        |app| {
+            format!(
+                "| {} | {} | {} | {} |",
+                app.name,
+                app.version.as_deref().unwrap_or("?"),
+                app.publisher.as_deref().unwrap_or("?"),
+                app.source
+            )
+        },
+    );
 
     simple_list_section(
         md,
@@ -146,6 +133,30 @@ fn write_software(md: &mut String, report: &SystemReport) {
         "| Protocole | Adresse locale | État |\n|---|---|---|",
         &software.network_connections,
         |c| format!("| {} | {} | {} |", c.protocol, c.local_address, c.state),
+    );
+
+    simple_list_section(
+        md,
+        "Images Docker",
+        "| Dépôt | Tag | ID image | Taille | Créée |\n|---|---|---|---|---|",
+        &software.docker_images,
+        |img| format!("| {} | {} | {} | {} | {} |", img.repository, img.tag, img.image_id, img.size, img.created),
+    );
+
+    simple_list_section(
+        md,
+        "Volumes Docker",
+        "| Nom | Driver | Point de montage |\n|---|---|---|",
+        &software.docker_volumes,
+        |v| format!("| {} | {} | {} |", v.name, v.driver, opt(&v.mountpoint)),
+    );
+
+    simple_list_section(
+        md,
+        "Machines virtuelles (VirtualBox / QEMU-KVM)",
+        "| Nom | Hyperviseur | État | Identifiant |\n|---|---|---|---|",
+        &software.virtual_machines,
+        |vm| format!("| {} | {} | {} | {} |", vm.name, vm.hypervisor, vm.state, opt(&vm.identifier)),
     );
 
     writeln!(md, "### Environnement de bureau").unwrap();
@@ -221,49 +232,33 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
         |v| format!("| {} | {} |", v.name, v.status),
     );
 
-    writeln!(md, "### Stockage ({} disque(s))", hardware.disks.len()).unwrap();
-    writeln!(
+    simple_list_section(
         md,
-        "| Nom | Type | Système de fichiers | Point de montage | Amovible | Utilisé / Total (Go) | Santé SMART |"
-    )
-    .unwrap();
-    writeln!(md, "|---|---|---|---|---|---|---|").unwrap();
-    for disk in &hardware.disks {
-        writeln!(
-            md,
-            "| {} | {} | {} | {} | {} | {} / {} | {} |",
-            disk.name,
-            disk.kind,
-            disk.file_system,
-            disk.mount_point,
-            if disk.is_removable { "Oui" } else { "Non" },
-            disk.used_gb,
-            disk.total_gb,
-            opt(&disk.smart_health)
-        )
-        .unwrap();
-    }
-    writeln!(md).unwrap();
-
-    writeln!(
-        md,
-        "### Stockage virtuel ({} montage(s) : overlay Docker/containerd, etc.)",
-        hardware.virtual_disks.len()
-    )
-    .unwrap();
-    if !hardware.virtual_disks.is_empty() {
-        writeln!(md, "| Nom | Système de fichiers | Point de montage |").unwrap();
-        writeln!(md, "|---|---|---|").unwrap();
-        for disk in &hardware.virtual_disks {
-            writeln!(
-                md,
-                "| {} | {} | {} |",
-                disk.name, disk.file_system, disk.mount_point
+        "Stockage",
+        "| Nom | Type | Système de fichiers | Point de montage | Amovible | Utilisé / Total (Go) | Santé SMART |\n|---|---|---|---|---|---|---|",
+        &hardware.disks,
+        |disk| {
+            format!(
+                "| {} | {} | {} | {} | {} | {} / {} | {} |",
+                disk.name,
+                disk.kind,
+                disk.file_system,
+                disk.mount_point,
+                if disk.is_removable { "Oui" } else { "Non" },
+                disk.used_gb,
+                disk.total_gb,
+                opt(&disk.smart_health)
             )
-            .unwrap();
-        }
-    }
-    writeln!(md).unwrap();
+        },
+    );
+
+    simple_list_section(
+        md,
+        "Stockage virtuel (overlay Docker/containerd, etc.)",
+        "| Nom | Système de fichiers | Point de montage |\n|---|---|---|",
+        &hardware.virtual_disks,
+        |disk| format!("| {} | {} | {} |", disk.name, disk.file_system, disk.mount_point),
+    );
 
     writeln!(md, "### Réseau ({} interface(s))", hardware.network.interfaces.len()).unwrap();
     writeln!(md, "| Interface | Reçu (octets) | Émis (octets) |").unwrap();
@@ -304,26 +299,21 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
         |p| format!("| {} | {} |", p.name, p.class),
     );
 
-    writeln!(
+    simple_list_section(
         md,
-        "### Capteurs / composants ({})",
-        hardware.components.len()
-    )
-    .unwrap();
-    writeln!(md, "| Label | Température (°C) | Max (°C) | Critique (°C) |").unwrap();
-    writeln!(md, "|---|---|---|---|").unwrap();
-    for component in &hardware.components {
-        writeln!(
-            md,
-            "| {} | {} | {} | {} |",
-            component.label,
-            opt_num(component.temperature_celsius),
-            opt_num(component.max_temperature_celsius),
-            opt_num(component.critical_temperature_celsius)
-        )
-        .unwrap();
-    }
-    writeln!(md).unwrap();
+        "Capteurs / composants",
+        "| Label | Température (°C) | Max (°C) | Critique (°C) |\n|---|---|---|---|",
+        &hardware.components,
+        |component| {
+            format!(
+                "| {} | {} | {} | {} |",
+                component.label,
+                opt_num(component.temperature_celsius),
+                opt_num(component.max_temperature_celsius),
+                opt_num(component.critical_temperature_celsius)
+            )
+        },
+    );
 
     writeln!(md, "### Batterie(s) ({})", hardware.batteries.len()).unwrap();
     if !hardware.batteries.is_empty() {
@@ -378,177 +368,127 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
     writeln!(md, "| Secure Boot | {} |", opt(&hardware.motherboard.secure_boot)).unwrap();
     writeln!(md).unwrap();
 
-    writeln!(md, "### GPU(s) ({})", hardware.gpus.len()).unwrap();
-    writeln!(md, "| Nom | Fabricant |").unwrap();
-    writeln!(md, "|---|---|").unwrap();
-    for gpu in &hardware.gpus {
-        writeln!(md, "| {} | {} |", gpu.name, opt(&gpu.vendor)).unwrap();
-    }
-    writeln!(md).unwrap();
-
-    writeln!(md, "### Écran(s) ({})", hardware.monitors.len()).unwrap();
-    writeln!(
+    simple_list_section(
         md,
-        "| Nom | Résolution | Position | Échelle | Fréquence (Hz) | Primaire | Intégré |"
-    )
-    .unwrap();
-    writeln!(md, "|---|---|---|---|---|---|---|").unwrap();
-    for monitor in &hardware.monitors {
-        writeln!(
-            md,
-            "| {} | {}x{} | ({}, {}) | {:.2} | {:.0} | {} | {} |",
-            monitor.name,
-            monitor.width,
-            monitor.height,
-            monitor.x,
-            monitor.y,
-            monitor.scale_factor,
-            monitor.frequency_hz,
-            if monitor.is_primary { "Oui" } else { "Non" },
-            if monitor.is_builtin { "Oui" } else { "Non" }
-        )
-        .unwrap();
-    }
-    writeln!(md).unwrap();
+        "GPU(s)",
+        "| Nom | Fabricant |\n|---|---|",
+        &hardware.gpus,
+        |gpu| format!("| {} | {} |", gpu.name, opt(&gpu.vendor)),
+    );
 
-    writeln!(
+    simple_list_section(
         md,
-        "### Lecteurs optiques / disquettes ({})",
-        hardware.optical_drives.len()
-    )
-    .unwrap();
-    if !hardware.optical_drives.is_empty() {
-        writeln!(md, "| Nom | Fabricant | Type |").unwrap();
-        writeln!(md, "|---|---|---|").unwrap();
-        for drive in &hardware.optical_drives {
-            writeln!(
-                md,
+        "Écran(s)",
+        "| Nom | Résolution | Position | Échelle | Fréquence (Hz) | Primaire | Intégré |\n|---|---|---|---|---|---|---|",
+        &hardware.monitors,
+        |monitor| {
+            format!(
+                "| {} | {}x{} | ({}, {}) | {:.2} | {:.0} | {} | {} |",
+                monitor.name,
+                monitor.width,
+                monitor.height,
+                monitor.x,
+                monitor.y,
+                monitor.scale_factor,
+                monitor.frequency_hz,
+                if monitor.is_primary { "Oui" } else { "Non" },
+                if monitor.is_builtin { "Oui" } else { "Non" }
+            )
+        },
+    );
+
+    simple_list_section(
+        md,
+        "Lecteurs optiques / disquettes",
+        "| Nom | Fabricant | Type |\n|---|---|---|",
+        &hardware.optical_drives,
+        |drive| {
+            format!(
                 "| {} | {} | {} |",
                 drive.name,
                 drive.vendor.as_deref().unwrap_or("?"),
                 drive.kind
             )
-            .unwrap();
-        }
-    }
-    writeln!(md).unwrap();
+        },
+    );
 
-    writeln!(md, "### Périphériques ({})", hardware.peripherals.len()).unwrap();
-    if !hardware.peripherals.is_empty() {
-        writeln!(md, "| Nom | Type |").unwrap();
-        writeln!(md, "|---|---|").unwrap();
-        for peripheral in &hardware.peripherals {
-            writeln!(md, "| {} | {} |", peripheral.name, peripheral.kind).unwrap();
-        }
-    }
-    writeln!(md).unwrap();
-
-    writeln!(md, "### Souris ({})", hardware.mice.len()).unwrap();
-    if !hardware.mice.is_empty() {
-        writeln!(md, "| Nom |").unwrap();
-        writeln!(md, "|---|").unwrap();
-        for mouse in &hardware.mice {
-            writeln!(md, "| {} |", mouse.name).unwrap();
-        }
-    }
-    writeln!(md).unwrap();
-
-    writeln!(md, "### Manette(s) ({})", hardware.gamepads.len()).unwrap();
-    if !hardware.gamepads.is_empty() {
-        writeln!(md, "| Nom |").unwrap();
-        writeln!(md, "|---|").unwrap();
-        for gamepad in &hardware.gamepads {
-            writeln!(md, "| {} |", gamepad.name).unwrap();
-        }
-    }
-    writeln!(md).unwrap();
-
-    writeln!(md, "### Touchpad(s) ({})", hardware.touchpads.len()).unwrap();
-    if !hardware.touchpads.is_empty() {
-        writeln!(md, "| Nom |").unwrap();
-        writeln!(md, "|---|").unwrap();
-        for touchpad in &hardware.touchpads {
-            writeln!(md, "| {} |", touchpad.name).unwrap();
-        }
-    }
-    writeln!(md).unwrap();
-
-    writeln!(md, "### Caméra(s) ({})", hardware.cameras.len()).unwrap();
-    if !hardware.cameras.is_empty() {
-        writeln!(md, "| Nom |").unwrap();
-        writeln!(md, "|---|").unwrap();
-        for camera in &hardware.cameras {
-            writeln!(md, "| {} |", camera.name).unwrap();
-        }
-    }
-    writeln!(md).unwrap();
-
-    writeln!(
+    simple_list_section(
         md,
-        "### Périphériques externes (USB) ({})",
-        hardware.usb_devices.len()
-    )
-    .unwrap();
-    if !hardware.usb_devices.is_empty() {
-        writeln!(md, "| Nom | Fabricant |").unwrap();
-        writeln!(md, "|---|---|").unwrap();
-        for device in &hardware.usb_devices {
-            writeln!(
-                md,
-                "| {} | {} |",
-                device.name,
-                device.vendor.as_deref().unwrap_or("?")
-            )
-            .unwrap();
-        }
-    }
-    writeln!(md).unwrap();
+        "Périphériques",
+        "| Nom | Type |\n|---|---|",
+        &hardware.peripherals,
+        |peripheral| format!("| {} | {} |", peripheral.name, peripheral.kind),
+    );
 
-    writeln!(
+    simple_list_section(
         md,
-        "### Périphériques Bluetooth appairés ({})",
-        hardware.bluetooth_devices.len()
-    )
-    .unwrap();
-    if !hardware.bluetooth_devices.is_empty() {
-        writeln!(md, "| Nom |").unwrap();
-        writeln!(md, "|---|").unwrap();
-        for device in &hardware.bluetooth_devices {
-            writeln!(md, "| {} |", device.name).unwrap();
-        }
-    }
-    writeln!(md).unwrap();
+        "Souris",
+        "| Nom |\n|---|",
+        &hardware.mice,
+        |mouse| format!("| {} |", mouse.name),
+    );
 
-    writeln!(
+    simple_list_section(
         md,
-        "### Imprimantes / Scanners ({})",
-        hardware.printers.len()
-    )
-    .unwrap();
-    if !hardware.printers.is_empty() {
-        writeln!(md, "| Nom | Type |").unwrap();
-        writeln!(md, "|---|---|").unwrap();
-        for printer in &hardware.printers {
-            writeln!(md, "| {} | {} |", printer.name, printer.kind).unwrap();
-        }
-    }
-    writeln!(md).unwrap();
+        "Manette(s)",
+        "| Nom |\n|---|",
+        &hardware.gamepads,
+        |gamepad| format!("| {} |", gamepad.name),
+    );
 
-    writeln!(md, "### Ventilateur(s) ({})", hardware.fans.len()).unwrap();
-    if !hardware.fans.is_empty() {
-        writeln!(md, "| Nom | Vitesse (tr/min) |").unwrap();
-        writeln!(md, "|---|---|").unwrap();
-        for fan in &hardware.fans {
-            writeln!(
-                md,
+    simple_list_section(
+        md,
+        "Touchpad(s)",
+        "| Nom |\n|---|",
+        &hardware.touchpads,
+        |touchpad| format!("| {} |", touchpad.name),
+    );
+
+    simple_list_section(
+        md,
+        "Caméra(s)",
+        "| Nom |\n|---|",
+        &hardware.cameras,
+        |camera| format!("| {} |", camera.name),
+    );
+
+    simple_list_section(
+        md,
+        "Périphériques externes (USB)",
+        "| Nom | Fabricant |\n|---|---|",
+        &hardware.usb_devices,
+        |device| format!("| {} | {} |", device.name, device.vendor.as_deref().unwrap_or("?")),
+    );
+
+    simple_list_section(
+        md,
+        "Périphériques Bluetooth appairés",
+        "| Nom |\n|---|",
+        &hardware.bluetooth_devices,
+        |device| format!("| {} |", device.name),
+    );
+
+    simple_list_section(
+        md,
+        "Imprimantes / Scanners",
+        "| Nom | Type |\n|---|---|",
+        &hardware.printers,
+        |printer| format!("| {} | {} |", printer.name, printer.kind),
+    );
+
+    simple_list_section(
+        md,
+        "Ventilateur(s)",
+        "| Nom | Vitesse (tr/min) |\n|---|---|",
+        &hardware.fans,
+        |fan| {
+            format!(
                 "| {} | {} |",
                 fan.name,
                 fan.speed_rpm.map(|v| v.to_string()).unwrap_or_else(|| "?".to_string())
             )
-            .unwrap();
-        }
-    }
-    writeln!(md).unwrap();
+        },
+    );
 }
 
 fn write_browsers(md: &mut String, report: &SystemReport) {

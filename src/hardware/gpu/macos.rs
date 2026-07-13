@@ -1,5 +1,4 @@
 use super::GpuInfo;
-use std::process::Command;
 
 fn parse_value(line: &str, key: &str) -> Option<String> {
     let line = line.trim();
@@ -9,16 +8,9 @@ fn parse_value(line: &str, key: &str) -> Option<String> {
 }
 
 pub fn collect() -> Vec<GpuInfo> {
-    let Ok(output) = Command::new("system_profiler")
-        .arg("SPDisplaysDataType")
-        .output()
-    else {
+    let Some(text) = crate::command::run("system_profiler", &["SPDisplaysDataType"]) else {
         return Vec::new();
     };
-    if !output.status.success() {
-        return Vec::new();
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
 
     let mut gpus = Vec::new();
     let mut current_name: Option<String> = None;

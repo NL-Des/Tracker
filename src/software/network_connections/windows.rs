@@ -1,16 +1,11 @@
 use super::NetworkConnectionInfo;
-use std::process::Command;
 
 /// `netstat -an` ne nécessite pas de droits admin pour les connexions de
 /// l'utilisateur courant.
 pub fn collect() -> Vec<NetworkConnectionInfo> {
-    let Ok(output) = Command::new("netstat").arg("-an").output() else {
+    let Some(text) = crate::command::run("netstat", &["-an"]) else {
         return Vec::new();
     };
-    if !output.status.success() {
-        return Vec::new();
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
 
     text.lines()
         .filter_map(|line| {

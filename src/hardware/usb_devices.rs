@@ -18,20 +18,5 @@ pub struct UsbDeviceInfo {
 /// (stockage/réseau/autre) : nécessiterait de parser les descripteurs
 /// d'interface USB, jugé hors scope pour un inventaire.
 pub fn collect() -> Vec<UsbDeviceInfo> {
-    #[cfg(target_os = "linux")]
-    {
-        linux::collect()
-    }
-    #[cfg(target_os = "windows")]
-    {
-        windows::collect()
-    }
-    #[cfg(target_os = "macos")]
-    {
-        macos::collect()
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
-    {
-        Vec::new()
-    }
+    crate::os_dispatch::dispatch_os!(linux::collect(), macos::collect(), windows::collect(), Vec::new())
 }

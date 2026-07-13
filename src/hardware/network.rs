@@ -30,15 +30,8 @@ fn collect_interfaces() -> Vec<NetworkInterfaceInfo> {
 }
 
 #[cfg(target_os = "linux")]
-fn read_default_gateway() -> Option<String> {
-    let output = std::process::Command::new("ip")
-        .args(["route", "show", "default"])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
+fn read_default_gateway_linux() -> Option<String> {
+    let text = crate::command::run("ip", &["route", "show", "default"])?;
     // Format : "default via 192.168.1.1 dev eth0 ..."
     text.lines().find_map(|line| {
         let mut words = line.split_whitespace();
@@ -51,13 +44,12 @@ fn read_default_gateway() -> Option<String> {
     })
 }
 
-#[cfg(not(target_os = "linux"))]
 fn read_default_gateway() -> Option<String> {
-    None
+    crate::os_dispatch::dispatch_os!(read_default_gateway_linux(), None, None, None)
 }
 
 #[cfg(target_os = "linux")]
-fn read_dns_servers() -> Vec<String> {
+fn read_dns_servers_linux() -> Vec<String> {
     let Ok(contents) = std::fs::read_to_string("/etc/resolv.conf") else {
         return Vec::new();
     };
@@ -69,9 +61,8 @@ fn read_dns_servers() -> Vec<String> {
         .collect()
 }
 
-#[cfg(not(target_os = "linux"))]
 fn read_dns_servers() -> Vec<String> {
-    Vec::new()
+    crate::os_dispatch::dispatch_os!(read_dns_servers_linux(), Vec::new(), Vec::new(), Vec::new())
 }
 
 pub fn collect() -> NetworkInfo {

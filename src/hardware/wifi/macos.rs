@@ -1,5 +1,4 @@
 use super::WifiNetworkInfo;
-use std::process::Command;
 
 const AIRPORT_PATH: &str =
     "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport";
@@ -12,13 +11,9 @@ fn parse_field(output: &str, key: &str) -> Option<String> {
 }
 
 pub fn collect() -> Vec<WifiNetworkInfo> {
-    let Ok(output) = Command::new(AIRPORT_PATH).arg("-I").output() else {
+    let Some(text) = crate::command::run(AIRPORT_PATH, &["-I"]) else {
         return Vec::new();
     };
-    if !output.status.success() {
-        return Vec::new();
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
 
     let Some(ssid) = parse_field(&text, "SSID") else {
         return Vec::new();

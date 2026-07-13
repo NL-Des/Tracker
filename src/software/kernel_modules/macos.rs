@@ -1,16 +1,11 @@
 use super::KernelModuleInfo;
-use std::process::Command;
 
 /// `kextstat` liste les extensions noyau (kexts) chargées, sans root.
 /// Format d'une ligne de données : "Index Refs Address Size Wired Name (Version) ...".
 pub fn collect() -> Vec<KernelModuleInfo> {
-    let Ok(output) = Command::new("kextstat").output() else {
+    let Some(text) = crate::command::run("kextstat", &[]) else {
         return Vec::new();
     };
-    if !output.status.success() {
-        return Vec::new();
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
 
     text.lines()
         .skip(1)

@@ -1,15 +1,14 @@
 use super::PrinterInfo;
-use std::process::Command;
 
 /// `lpstat -p` (CUPS) affiche une ligne par imprimante :
 /// `printer <nom> is idle.  enabled since ...`
+/// Statut de sortie non vérifié ici (comportement existant conservé).
 fn printers() -> Vec<PrinterInfo> {
-    let Ok(output) = Command::new("lpstat").arg("-p").output() else {
+    let Some(text) = crate::command::run_lenient("lpstat", &["-p"]) else {
         return Vec::new();
     };
 
-    String::from_utf8_lossy(&output.stdout)
-        .lines()
+    text.lines()
         .filter_map(|line| line.strip_prefix("printer "))
         .filter_map(|rest| rest.split_whitespace().next())
         .map(|name| PrinterInfo {
@@ -21,13 +20,13 @@ fn printers() -> Vec<PrinterInfo> {
 
 /// `scanimage -L` (SANE) affiche une ligne par scanner :
 /// `device `URI' is a Fabricant Modèle flatbed scanner`
+/// Statut de sortie non vérifié ici (comportement existant conservé).
 fn scanners() -> Vec<PrinterInfo> {
-    let Ok(output) = Command::new("scanimage").arg("-L").output() else {
+    let Some(text) = crate::command::run_lenient("scanimage", &["-L"]) else {
         return Vec::new();
     };
 
-    String::from_utf8_lossy(&output.stdout)
-        .lines()
+    text.lines()
         .filter_map(|line| line.strip_prefix("device "))
         .filter_map(|rest| rest.split_once("is a "))
         .map(|(_, name)| PrinterInfo {

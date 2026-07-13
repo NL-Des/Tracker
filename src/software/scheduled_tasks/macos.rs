@@ -1,17 +1,12 @@
 use super::ScheduledTaskInfo;
-use std::process::Command;
 
 /// Sur macOS, `cron`/`crontab -l` reste disponible pour l'utilisateur
 /// courant (même mécanisme que Linux), en plus des `launchd` agents
 /// utilisateur déjà couverts par `services.rs`.
 pub fn collect() -> Vec<ScheduledTaskInfo> {
-    let Ok(output) = Command::new("crontab").arg("-l").output() else {
+    let Some(text) = crate::command::run("crontab", &["-l"]) else {
         return Vec::new();
     };
-    if !output.status.success() {
-        return Vec::new();
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
 
     text.lines()
         .map(str::trim)

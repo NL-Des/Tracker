@@ -28,7 +28,7 @@ pub struct CpuInfo {
 /// Statuts des mitigations Spectre/Meltdown/etc. Lecture libre sur Linux
 /// (aucune élévation requise) ; absent sur les autres OS.
 #[cfg(target_os = "linux")]
-fn read_vulnerabilities() -> Vec<VulnerabilityInfo> {
+fn read_vulnerabilities_linux() -> Vec<VulnerabilityInfo> {
     let Ok(entries) = std::fs::read_dir("/sys/devices/system/cpu/vulnerabilities") else {
         return Vec::new();
     };
@@ -44,24 +44,22 @@ fn read_vulnerabilities() -> Vec<VulnerabilityInfo> {
     vulnerabilities
 }
 
-#[cfg(not(target_os = "linux"))]
 fn read_vulnerabilities() -> Vec<VulnerabilityInfo> {
-    Vec::new()
+    crate::os_dispatch::dispatch_os!(read_vulnerabilities_linux(), Vec::new(), Vec::new(), Vec::new())
 }
 
 /// Gouverneur de fréquence du premier cœur (performance/powersave/...).
 /// Lecture libre sur Linux ; absent sur les autres OS.
 #[cfg(target_os = "linux")]
-fn read_scaling_governor() -> Option<String> {
+fn read_scaling_governor_linux() -> Option<String> {
     std::fs::read_to_string("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
         .ok()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
 }
 
-#[cfg(not(target_os = "linux"))]
 fn read_scaling_governor() -> Option<String> {
-    None
+    crate::os_dispatch::dispatch_os!(read_scaling_governor_linux(), None, None, None)
 }
 
 pub fn collect(sys: &System) -> CpuInfo {

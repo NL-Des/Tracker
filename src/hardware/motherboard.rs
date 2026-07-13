@@ -24,11 +24,8 @@ pub struct MotherboardInfo {
 
 #[cfg(target_os = "linux")]
 fn read_secure_boot_state() -> Option<String> {
-    let output = std::process::Command::new("mokutil")
-        .arg("--sb-state")
-        .output()
-        .ok()?;
-    let text = String::from_utf8_lossy(&output.stdout);
+    // Statut de sortie non vérifié ici (comportement existant conservé).
+    let text = crate::command::run_lenient("mokutil", &["--sb-state"])?;
     text.lines().next().map(|line| line.trim().to_string())
 }
 
@@ -38,24 +35,12 @@ fn read_secure_boot_state() -> Option<String> {
 }
 
 pub fn collect() -> MotherboardInfo {
-    let mut info = {
-        #[cfg(target_os = "linux")]
-        {
-            linux::collect()
-        }
-        #[cfg(target_os = "windows")]
-        {
-            windows::collect()
-        }
-        #[cfg(target_os = "macos")]
-        {
-            macos::collect()
-        }
-        #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
-        {
-            MotherboardInfo::default()
-        }
-    };
+    let mut info = crate::os_dispatch::dispatch_os!(
+        linux::collect(),
+        macos::collect(),
+        windows::collect(),
+        MotherboardInfo::default()
+    );
     info.secure_boot = read_secure_boot_state();
     info
 }

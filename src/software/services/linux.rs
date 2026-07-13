@@ -1,25 +1,20 @@
 use super::ServiceInfo;
-use std::process::Command;
 
 /// `systemctl list-units` en mode utilisateur est en lecture seule.
 pub fn collect() -> Vec<ServiceInfo> {
-    let Ok(output) = Command::new("systemctl")
-        .args([
+    let Some(text) = crate::command::run(
+        "systemctl",
+        &[
             "list-units",
             "--type=service",
             "--all",
             "--no-legend",
             "--no-pager",
             "--plain",
-        ])
-        .output()
-    else {
+        ],
+    ) else {
         return Vec::new();
     };
-    if !output.status.success() {
-        return Vec::new();
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
 
     text.lines()
         .filter_map(|line| {

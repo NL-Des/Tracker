@@ -21,24 +21,14 @@ pub struct InputDevices {
 /// Infaillible par design : absence de périphérique ou erreur d'accès
 /// matériel renvoient simplement des `Vec` vides.
 pub fn collect() -> InputDevices {
-    #[cfg(target_os = "linux")]
-    {
-        linux::collect()
-    }
-    #[cfg(target_os = "windows")]
-    {
-        windows::collect()
-    }
-    #[cfg(target_os = "macos")]
-    {
-        macos::collect()
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
-    {
+    crate::os_dispatch::dispatch_os!(
+        linux::collect(),
+        macos::collect(),
+        windows::collect(),
         InputDevices {
             mice: Vec::new(),
             gamepads: Vec::new(),
             touchpads: Vec::new(),
         }
-    }
+    )
 }

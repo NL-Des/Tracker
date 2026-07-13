@@ -1,6 +1,5 @@
 use super::BrowserInfo;
 use std::path::Path;
-use std::process::Command;
 
 const KNOWN_BUNDLES: &[(&str, &str)] = &[
     ("Google Chrome", "Google Chrome.app"),
@@ -15,20 +14,16 @@ const KNOWN_BUNDLES: &[(&str, &str)] = &[
 const APPLICATIONS_DIRS: &[&str] = &["/Applications", "/System/Applications"];
 
 fn bundle_version(bundle_path: &Path) -> Option<String> {
-    let plist_path = bundle_path.join("Contents/Info.plist");
-    let output = Command::new("plutil")
-        .args(["-extract", "CFBundleShortVersionString", "raw", "-o", "-"])
-        .arg(&plist_path)
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let plist_path = bundle_path.join("Contents/Info.plist").to_string_lossy().into_owned();
+    let text = crate::command::run(
+        "plutil",
+        &["-extract", "CFBundleShortVersionString", "raw", "-o", "-", &plist_path],
+    )?;
+    let text = text.trim();
     if text.is_empty() {
         None
     } else {
-        Some(text)
+        Some(text.to_string())
     }
 }
 
@@ -39,15 +34,8 @@ fn default_browser_bundle_id() -> Option<String> {
     let plist = format!(
         "{home}/Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist"
     );
-    let output = Command::new("plutil")
-        .args(["-convert", "json", "-o", "-"])
-        .arg(&plist)
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
+    let text = crate::command::run("plutil", &["-convert", "json", "-o", "-", &plist])?;
+    let json: serde_json::Value = serde_json::from_str(&text).ok()?;
     let handlers = json.get("LSHandlers")?.as_array()?;
     handlers.iter().find_map(|handler| {
         let scheme = handler.get("LSHandlerURLScheme")?.as_str()?;

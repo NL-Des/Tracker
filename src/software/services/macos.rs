@@ -1,16 +1,11 @@
 use super::ServiceInfo;
-use std::process::Command;
 
 /// `launchctl list` en tant qu'utilisateur courant, lecture seule.
 /// Format : "PID Status Label".
 pub fn collect() -> Vec<ServiceInfo> {
-    let Ok(output) = Command::new("launchctl").arg("list").output() else {
+    let Some(text) = crate::command::run("launchctl", &["list"]) else {
         return Vec::new();
     };
-    if !output.status.success() {
-        return Vec::new();
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
 
     text.lines()
         .skip(1)

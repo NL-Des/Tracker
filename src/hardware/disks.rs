@@ -22,11 +22,7 @@ pub struct DiskInfo {
 /// donc traité comme une simple absence de donnée.
 fn read_smart_health(device_name: &str) -> Option<String> {
     let device_path = format!("/dev/{device_name}");
-    let output = std::process::Command::new("smartctl")
-        .args(["-H", &device_path])
-        .output()
-        .ok()?;
-    let text = String::from_utf8_lossy(&output.stdout);
+    let text = crate::command::run_lenient("smartctl", &["-H", &device_path])?;
     text.lines().find_map(|line| {
         let line = line.trim();
         line.strip_prefix("SMART overall-health self-assessment test result:")

@@ -17,20 +17,5 @@ pub struct AutostartEntryInfo {
 /// utilisateur n'existe ou n'est lisible. Portée utilisateur uniquement,
 /// aucune élévation requise.
 pub fn collect() -> Vec<AutostartEntryInfo> {
-    #[cfg(target_os = "linux")]
-    {
-        linux::collect()
-    }
-    #[cfg(target_os = "windows")]
-    {
-        windows::collect()
-    }
-    #[cfg(target_os = "macos")]
-    {
-        macos::collect()
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
-    {
-        Vec::new()
-    }
+    crate::os_dispatch::dispatch_os!(linux::collect(), macos::collect(), windows::collect(), Vec::new())
 }

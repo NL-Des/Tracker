@@ -1,16 +1,11 @@
 use super::NetworkConnectionInfo;
-use std::process::Command;
 
 /// `netstat -p tcp -p udp` sans sudo liste déjà les connexions accessibles
 /// à l'utilisateur courant.
 pub fn collect() -> Vec<NetworkConnectionInfo> {
-    let Ok(output) = Command::new("netstat").args(["-an"]).output() else {
+    let Some(text) = crate::command::run("netstat", &["-an"]) else {
         return Vec::new();
     };
-    if !output.status.success() {
-        return Vec::new();
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
 
     text.lines()
         .filter(|line| line.starts_with("tcp") || line.starts_with("udp"))

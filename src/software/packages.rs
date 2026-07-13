@@ -1,5 +1,4 @@
 use serde::Serialize;
-use std::process::Command;
 
 #[derive(Serialize)]
 pub struct PackageManagerInfo {
@@ -26,14 +25,8 @@ pub fn collect() -> Vec<PackageManagerInfo> {
     PACKAGE_MANAGERS
         .iter()
         .filter_map(|(manager, binary, args)| {
-            let output = Command::new(binary).args(*args).output().ok()?;
-            if !output.status.success() {
-                return None;
-            }
-            let package_count = String::from_utf8_lossy(&output.stdout)
-                .lines()
-                .filter(|line| !line.trim().is_empty())
-                .count();
+            let output = crate::command::run(binary, args)?;
+            let package_count = output.lines().filter(|line| !line.trim().is_empty()).count();
             Some(PackageManagerInfo {
                 manager: manager.to_string(),
                 package_count,

@@ -3,6 +3,9 @@ name = "tracker"
 version = "0.1.0"
 edition = "2024"
 
+[profile.dev]
+debug = 1
+
 [dependencies]
 display-info = "0.5.9"
 serde = { version = "1.0.228", features = ["derive"] }

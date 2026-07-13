@@ -1,6 +1,7 @@
 pub mod autostart;
 pub mod desktop_env;
 pub mod dev_runtimes;
+pub mod docker;
 pub mod env_vars;
 pub mod installed_apps;
 pub mod kernel_modules;
@@ -12,6 +13,7 @@ pub mod scheduled_tasks;
 pub mod services;
 pub mod update_history;
 pub mod users;
+pub mod virtual_machines;
 
 use serde::Serialize;
 use sysinfo::System;
@@ -32,6 +34,9 @@ pub struct SoftwareInfo {
     pub desktop_environment: desktop_env::DesktopEnvironmentInfo,
     pub update_history: Vec<update_history::UpdateHistoryEntryInfo>,
     pub kernel_modules: Vec<kernel_modules::KernelModuleInfo>,
+    pub docker_images: Vec<docker::DockerImageInfo>,
+    pub docker_volumes: Vec<docker::DockerVolumeInfo>,
+    pub virtual_machines: Vec<virtual_machines::VirtualMachineInfo>,
 }
 
 pub fn collect(sys: &System) -> SoftwareInfo {
@@ -50,5 +55,8 @@ pub fn collect(sys: &System) -> SoftwareInfo {
         desktop_environment: desktop_env::collect(),
         update_history: update_history::collect(),
         kernel_modules: kernel_modules::collect(),
+        docker_images: docker::collect_images(),
+        docker_volumes: docker::collect_volumes(),
+        virtual_machines: virtual_machines::collect(),
     }
 }

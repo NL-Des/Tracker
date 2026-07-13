@@ -7,7 +7,6 @@ mod windows;
 
 use serde::Serialize;
 use std::path::Path;
-use std::process::Command;
 
 #[derive(Serialize)]
 pub struct BrowserExtensionInfo {
@@ -28,22 +27,7 @@ pub struct BrowserInfo {
 }
 
 pub fn collect() -> Vec<BrowserInfo> {
-    #[cfg(target_os = "linux")]
-    {
-        linux::collect()
-    }
-    #[cfg(target_os = "windows")]
-    {
-        windows::collect()
-    }
-    #[cfg(target_os = "macos")]
-    {
-        macos::collect()
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
-    {
-        Vec::new()
-    }
+    crate::os_dispatch::dispatch_os!(linux::collect(), macos::collect(), windows::collect(), Vec::new())
 }
 
 /// Tente d'obtenir la version d'un exécutable en le lançant avec `--version`.
@@ -51,13 +35,7 @@ pub fn collect() -> Vec<BrowserInfo> {
 /// (Chrome, Chromium, Edge, Brave, Opera, Firefox récents) supportent ce flag.
 #[allow(dead_code)]
 pub(crate) fn try_get_version(exe_path: &Path) -> Option<String> {
-    let output = Command::new(exe_path).arg("--version").output().ok()?;
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let text = if stdout.trim().is_empty() {
-        String::from_utf8_lossy(&output.stderr).into_owned()
-    } else {
-        stdout.into_owned()
-    };
+    let text = crate::command::run_lenient_stdout_or_stderr(exe_path.to_str()?, &["--version"])?;
     let trimmed = text.trim();
     if trimmed.is_empty() {
         None

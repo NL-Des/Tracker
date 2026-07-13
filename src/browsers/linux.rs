@@ -1,6 +1,5 @@
 use super::{try_get_version, BrowserInfo};
 use std::path::PathBuf;
-use std::process::Command;
 
 const KNOWN_BROWSERS: &[(&str, &[&str])] = &[
     ("Google Chrome", &["google-chrome-stable", "google-chrome"]),
@@ -18,11 +17,8 @@ const KNOWN_BROWSERS: &[(&str, &[&str])] = &[
 /// Best-effort : utilisé uniquement pour renseigner le chemin de l'exécutable
 /// dans le rapport, la détection de présence se fait via `try_get_version`.
 fn resolve_path(binary: &str) -> Option<PathBuf> {
-    let output = Command::new("which").arg(binary).output().ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let path = crate::command::run("which", &[binary])?;
+    let path = path.trim();
     if path.is_empty() {
         None
     } else {
@@ -31,18 +27,12 @@ fn resolve_path(binary: &str) -> Option<PathBuf> {
 }
 
 fn default_browser_desktop_id() -> Option<String> {
-    let output = Command::new("xdg-settings")
-        .args(["get", "default-web-browser"])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let text = crate::command::run("xdg-settings", &["get", "default-web-browser"])?;
+    let text = text.trim();
     if text.is_empty() {
         None
     } else {
-        Some(text)
+        Some(text.to_string())
     }
 }
 

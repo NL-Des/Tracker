@@ -18,20 +18,5 @@ pub struct NetworkConnectionInfo {
 /// courant (la liste complète tous utilisateurs peut nécessiter root selon
 /// l'OS), aucune élévation requise pour ce sous-ensemble.
 pub fn collect() -> Vec<NetworkConnectionInfo> {
-    #[cfg(target_os = "linux")]
-    {
-        linux::collect()
-    }
-    #[cfg(target_os = "windows")]
-    {
-        windows::collect()
-    }
-    #[cfg(target_os = "macos")]
-    {
-        macos::collect()
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
-    {
-        Vec::new()
-    }
+    crate::os_dispatch::dispatch_os!(linux::collect(), macos::collect(), windows::collect(), Vec::new())
 }

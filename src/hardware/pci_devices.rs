@@ -16,20 +16,5 @@ pub struct PciDeviceInfo {
 /// Infaillible par design : absence d'outil (`lspci`...) ou erreur d'accès
 /// renvoient simplement un `Vec` vide.
 pub fn collect() -> Vec<PciDeviceInfo> {
-    #[cfg(target_os = "linux")]
-    {
-        linux::collect()
-    }
-    #[cfg(target_os = "windows")]
-    {
-        windows::collect()
-    }
-    #[cfg(target_os = "macos")]
-    {
-        macos::collect()
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
-    {
-        Vec::new()
-    }
+    crate::os_dispatch::dispatch_os!(linux::collect(), macos::collect(), windows::collect(), Vec::new())
 }

@@ -1,5 +1,4 @@
 use serde::Serialize;
-use std::process::Command;
 
 #[derive(Serialize)]
 pub struct DevRuntimeInfo {
@@ -26,16 +25,8 @@ pub fn collect() -> Vec<DevRuntimeInfo> {
     RUNTIMES
         .iter()
         .filter_map(|(name, binary, args)| {
-            let output = Command::new(binary).args(*args).output().ok()?;
-            if !output.status.success() {
-                return None;
-            }
             // `java --version`/`--version` écrivent parfois sur stderr selon la version.
-            let text = if output.stdout.is_empty() {
-                String::from_utf8_lossy(&output.stderr).to_string()
-            } else {
-                String::from_utf8_lossy(&output.stdout).to_string()
-            };
+            let text = crate::command::run_stdout_or_stderr(binary, args)?;
             let version = text.lines().next()?.trim().to_string();
             Some(DevRuntimeInfo {
                 name: name.to_string(),

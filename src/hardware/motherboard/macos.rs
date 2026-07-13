@@ -1,5 +1,4 @@
 use super::MotherboardInfo;
-use std::process::Command;
 
 fn parse_field(output: &str, key: &str) -> Option<String> {
     output.lines().find_map(|line| {
@@ -11,16 +10,9 @@ fn parse_field(output: &str, key: &str) -> Option<String> {
 }
 
 pub fn collect() -> MotherboardInfo {
-    let Ok(output) = Command::new("system_profiler")
-        .arg("SPHardwareDataType")
-        .output()
-    else {
+    let Some(text) = crate::command::run("system_profiler", &["SPHardwareDataType"]) else {
         return MotherboardInfo::default();
     };
-    if !output.status.success() {
-        return MotherboardInfo::default();
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
 
     MotherboardInfo {
         vendor: Some("Apple".to_string()),
