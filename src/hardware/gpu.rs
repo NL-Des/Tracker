@@ -11,6 +11,8 @@ use serde::Serialize;
 pub struct GpuInfo {
     pub name: String,
     pub vendor: Option<String>,
+    pub vram_mb: Option<u64>,
+    pub driver_version: Option<String>,
 }
 
 /// Approche native par OS plutôt que `wgpu` : évite une dépendance lourde

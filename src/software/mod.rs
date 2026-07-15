@@ -3,14 +3,18 @@ pub mod desktop_env;
 pub mod dev_runtimes;
 pub mod docker;
 pub mod env_vars;
+pub mod fonts;
 pub mod installed_apps;
 pub mod kernel_modules;
 pub mod network_connections;
 pub mod os_info;
 pub mod packages;
+pub mod podman;
 pub mod processes;
+pub mod proxy_config;
 pub mod scheduled_tasks;
 pub mod services;
+pub mod ssh_keys;
 pub mod update_history;
 pub mod users;
 pub mod virtual_machines;
@@ -27,6 +31,7 @@ pub struct SoftwareInfo {
     pub installed_apps: Vec<installed_apps::InstalledAppInfo>,
     pub dev_runtimes: Vec<dev_runtimes::DevRuntimeInfo>,
     pub services: Vec<services::ServiceInfo>,
+    pub failed_services: Vec<services::ServiceInfo>,
     pub scheduled_tasks: Vec<scheduled_tasks::ScheduledTaskInfo>,
     pub autostart_entries: Vec<autostart::AutostartEntryInfo>,
     pub package_managers: Vec<packages::PackageManagerInfo>,
@@ -37,6 +42,11 @@ pub struct SoftwareInfo {
     pub docker_images: Vec<docker::DockerImageInfo>,
     pub docker_volumes: Vec<docker::DockerVolumeInfo>,
     pub virtual_machines: Vec<virtual_machines::VirtualMachineInfo>,
+    pub podman_images: Vec<docker::DockerImageInfo>,
+    pub podman_volumes: Vec<docker::DockerVolumeInfo>,
+    pub fonts: fonts::FontsSummary,
+    pub proxy_config: Option<proxy_config::ProxyConfigInfo>,
+    pub ssh_keys: Vec<ssh_keys::SshKeyInfo>,
 }
 
 pub fn collect(sys: &System) -> SoftwareInfo {
@@ -48,6 +58,7 @@ pub fn collect(sys: &System) -> SoftwareInfo {
         installed_apps: installed_apps::collect(),
         dev_runtimes: dev_runtimes::collect(),
         services: services::collect(),
+        failed_services: services::collect_failed(),
         scheduled_tasks: scheduled_tasks::collect(),
         autostart_entries: autostart::collect(),
         package_managers: packages::collect(),
@@ -58,5 +69,10 @@ pub fn collect(sys: &System) -> SoftwareInfo {
         docker_images: docker::collect_images(),
         docker_volumes: docker::collect_volumes(),
         virtual_machines: virtual_machines::collect(),
+        podman_images: podman::collect_images(),
+        podman_volumes: podman::collect_volumes(),
+        fonts: fonts::collect(),
+        proxy_config: proxy_config::collect(),
+        ssh_keys: ssh_keys::collect(),
     }
 }

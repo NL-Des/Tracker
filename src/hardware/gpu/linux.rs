@@ -11,6 +11,27 @@ fn vendor_name(vendor_id: &str) -> Option<&'static str> {
     }
 }
 
+struct NvidiaSmiInfo {
+    vram_mb: Option<u64>,
+    driver_version: Option<String>,
+}
+
+/// `nvidia-smi` (driver propriétaire NVIDIA) est en lecture seule et ne
+/// nécessite pas root ; absent sur les autres configurations, auquel cas on
+/// retombe sur les infos sysfs disponibles (AMD notamment).
+fn nvidia_smi_info() -> Option<NvidiaSmiInfo> {
+    let text = crate::command::run(
+        "nvidia-smi",
+        &["--query-gpu=memory.total,driver_version", "--format=csv,noheader,nounits"],
+    )?;
+    let line = text.lines().next()?;
+    let mut parts = line.split(',').map(|s| s.trim());
+    Some(NvidiaSmiInfo {
+        vram_mb: parts.next().and_then(|s| s.parse::<u64>().ok()),
+        driver_version: parts.next().map(|s| s.to_string()),
+    })
+}
+
 /// Heuristique légère basée sur les IDs vendeur PCI (pas de base pci.ids
 /// complète) : suffisant pour identifier les fabricants GPU courants.
 pub fn collect() -> Vec<GpuInfo> {
@@ -18,6 +39,10 @@ pub fn collect() -> Vec<GpuInfo> {
     let Ok(entries) = fs::read_dir("/sys/class/drm") else {
         return gpus;
     };
+
+    // Coûteux (lance un processus) : appelé une seule fois puis réutilisé
+    // pour chaque carte détectée en sysfs.
+    let nvidia_info = nvidia_smi_info();
 
     for entry in entries.filter_map(|e| e.ok()) {
         let file_name = entry.file_name();
@@ -46,9 +71,20 @@ pub fn collect() -> Vec<GpuInfo> {
             (None, None) => format!("Unknown vendor {vendor_id}"),
         };
 
+        // VRAM : sysfs `mem_info_vram_total` (AMD, octets) en priorité,
+        // sinon `nvidia-smi` si disponible.
+        let vram_mb = fs::read_to_string(device_dir.join("mem_info_vram_total"))
+            .ok()
+            .and_then(|s| s.trim().parse::<u64>().ok())
+            .map(|bytes| bytes / 1_000_000)
+            .or_else(|| nvidia_info.as_ref().and_then(|i| i.vram_mb));
+        let driver_version = nvidia_info.as_ref().and_then(|i| i.driver_version.clone());
+
         gpus.push(GpuInfo {
             name: display_name,
             vendor,
+            vram_mb,
+            driver_version,
         });
     }
 

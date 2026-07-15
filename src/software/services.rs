@@ -18,3 +18,9 @@ pub struct ServiceInfo {
 pub fn collect() -> Vec<ServiceInfo> {
     crate::os_dispatch::dispatch_os!(linux::collect(), macos::collect(), windows::collect(), Vec::new())
 }
+
+/// Unités en échec uniquement (`systemctl --failed` sur Linux). Pas de
+/// notion équivalente stricte sur macOS/Windows : `Vec` vide sur ces OS.
+pub fn collect_failed() -> Vec<ServiceInfo> {
+    crate::os_dispatch::dispatch_os!(linux::collect_failed(), Vec::new(), Vec::new(), Vec::new())
+}

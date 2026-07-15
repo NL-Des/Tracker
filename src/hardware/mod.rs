@@ -14,7 +14,9 @@ pub mod network;
 pub mod optical_drives;
 pub mod pci_devices;
 pub mod peripherals;
+pub mod power_profile;
 pub mod printers;
+pub mod storage_layout;
 pub mod usb_devices;
 pub mod wifi;
 
@@ -45,6 +47,8 @@ pub struct HardwareInfo {
     pub bluetooth_devices: Vec<bluetooth_devices::BluetoothDeviceInfo>,
     pub printers: Vec<printers::PrinterInfo>,
     pub fans: Vec<fans::FanInfo>,
+    pub storage_layout: storage_layout::StorageLayoutInfo,
+    pub power_profile: power_profile::PowerProfileInfo,
 }
 
 pub fn collect(sys: &System) -> HardwareInfo {
@@ -74,5 +78,7 @@ pub fn collect(sys: &System) -> HardwareInfo {
         bluetooth_devices: bluetooth_devices::collect(),
         printers: printers::collect(),
         fans: fans::collect(),
+        storage_layout: storage_layout::collect(),
+        power_profile: power_profile::collect(),
     }
 }

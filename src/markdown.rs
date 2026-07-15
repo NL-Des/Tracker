@@ -24,8 +24,6 @@ fn simple_list_section<T>(md: &mut String, title: &str, header: &str, items: &[T
     writeln!(md).unwrap();
     if !items.is_empty() {
         writeln!(md, "{header}").unwrap();
-        let separator_cols = header.matches('|').count().saturating_sub(1);
-        writeln!(md, "|{}", "---|".repeat(separator_cols)).unwrap();
         for item in items {
             writeln!(md, "{}", row(item)).unwrap();
         }
@@ -105,6 +103,14 @@ fn write_software(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        "Services / démons en échec",
+        "| Nom | État |\n|---|---|",
+        &software.failed_services,
+        |s| format!("| {} | {} |", s.name, s.status),
+    );
+
+    simple_list_section(
+        md,
         "Tâches planifiées (utilisateur courant)",
         "| Nom / commande | Planification |\n|---|---|",
         &software.scheduled_tasks,
@@ -158,6 +164,52 @@ fn write_software(md: &mut String, report: &SystemReport) {
         &software.virtual_machines,
         |vm| format!("| {} | {} | {} | {} |", vm.name, vm.hypervisor, vm.state, opt(&vm.identifier)),
     );
+
+    simple_list_section(
+        md,
+        "Images Podman",
+        "| Dépôt | Tag | ID image | Taille | Créée |\n|---|---|---|---|---|",
+        &software.podman_images,
+        |img| format!("| {} | {} | {} | {} | {} |", img.repository, img.tag, img.image_id, img.size, img.created),
+    );
+
+    simple_list_section(
+        md,
+        "Volumes Podman",
+        "| Nom | Driver | Point de montage |\n|---|---|---|",
+        &software.podman_volumes,
+        |v| format!("| {} | {} | {} |", v.name, v.driver, opt(&v.mountpoint)),
+    );
+
+    simple_list_section(
+        md,
+        "Clés SSH (métadonnées uniquement, clés publiques)",
+        "| Fichier | Type | Empreinte |\n|---|---|---|",
+        &software.ssh_keys,
+        |k| format!("| {} | {} | {} |", k.file_name, opt(&k.key_type), opt(&k.fingerprint)),
+    );
+
+    writeln!(md, "### Configuration proxy système").unwrap();
+    match &software.proxy_config {
+        Some(proxy) => {
+            writeln!(md, "| Champ | Valeur |").unwrap();
+            writeln!(md, "|---|---|").unwrap();
+            writeln!(md, "| HTTP | {} |", opt(&proxy.http_proxy)).unwrap();
+            writeln!(md, "| HTTPS | {} |", opt(&proxy.https_proxy)).unwrap();
+            writeln!(md, "| Exceptions (no_proxy) | {} |", opt(&proxy.no_proxy)).unwrap();
+            writeln!(md, "| Source | {} |", proxy.source).unwrap();
+        }
+        None => {
+            writeln!(md, "Aucun proxy configuré détecté.").unwrap();
+        }
+    }
+    writeln!(md).unwrap();
+
+    writeln!(md, "### Polices installées ({})", software.fonts.total_count).unwrap();
+    if !software.fonts.families.is_empty() {
+        writeln!(md, "{}", software.fonts.families.join(", ")).unwrap();
+    }
+    writeln!(md).unwrap();
 
     writeln!(md, "### Environnement de bureau").unwrap();
     writeln!(md, "| Champ | Valeur |").unwrap();
@@ -261,13 +313,24 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
     );
 
     writeln!(md, "### Réseau ({} interface(s))", hardware.network.interfaces.len()).unwrap();
-    writeln!(md, "| Interface | Reçu (octets) | Émis (octets) |").unwrap();
-    writeln!(md, "|---|---|---|").unwrap();
+    writeln!(
+        md,
+        "| Interface | Reçu (octets) | Émis (octets) | MAC | IPv4 | IPv6 | Vitesse (Mbps) | Type |"
+    )
+    .unwrap();
+    writeln!(md, "|---|---|---|---|---|---|---|---|").unwrap();
     for network in &hardware.network.interfaces {
         writeln!(
             md,
-            "| {} | {} | {} |",
-            network.interface_name, network.received_bytes, network.transmitted_bytes
+            "| {} | {} | {} | {} | {} | {} | {} | {} |",
+            network.interface_name,
+            network.received_bytes,
+            network.transmitted_bytes,
+            opt(&network.mac_address),
+            if network.ipv4_addresses.is_empty() { "?".to_string() } else { network.ipv4_addresses.join(", ") },
+            if network.ipv6_addresses.is_empty() { "?".to_string() } else { network.ipv6_addresses.join(", ") },
+            network.link_speed_mbps.map(|v| v.to_string()).unwrap_or_else(|| "?".to_string()),
+            opt(&network.connection_type),
         )
         .unwrap();
     }
@@ -371,9 +434,17 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
     simple_list_section(
         md,
         "GPU(s)",
-        "| Nom | Fabricant |\n|---|---|",
+        "| Nom | Fabricant | VRAM (Mo) | Version driver |\n|---|---|---|---|",
         &hardware.gpus,
-        |gpu| format!("| {} | {} |", gpu.name, opt(&gpu.vendor)),
+        |gpu| {
+            format!(
+                "| {} | {} | {} | {} |",
+                gpu.name,
+                opt(&gpu.vendor),
+                gpu.vram_mb.map(|v| v.to_string()).unwrap_or_else(|| "?".to_string()),
+                opt(&gpu.driver_version)
+            )
+        },
     );
 
     simple_list_section(
@@ -489,6 +560,37 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
             )
         },
     );
+
+    simple_list_section(
+        md,
+        "Partitions",
+        "| Périphérique | Système de fichiers | Taille (Go) |\n|---|---|---|",
+        &hardware.storage_layout.partitions,
+        |p| format!("| {} | {} | {} |", p.device, p.fs_type, p.size_gb),
+    );
+
+    simple_list_section(
+        md,
+        "Volumes LVM",
+        "| Groupe de volumes | Volume logique | Taille (Go) |\n|---|---|---|",
+        &hardware.storage_layout.lvm_volumes,
+        |v| format!("| {} | {} | {} |", v.vg_name, v.lv_name, v.size_gb),
+    );
+
+    simple_list_section(
+        md,
+        "Tableaux RAID logiciels",
+        "| Périphérique | Niveau | État | Membres |\n|---|---|---|---|",
+        &hardware.storage_layout.raid_arrays,
+        |r| format!("| {} | {} | {} | {} |", r.device, r.level, r.state, r.devices.join(", ")),
+    );
+
+    writeln!(md, "### Profil d'alimentation").unwrap();
+    writeln!(md, "| Champ | Valeur |").unwrap();
+    writeln!(md, "|---|---|").unwrap();
+    writeln!(md, "| Profil | {} |", opt(&hardware.power_profile.profile)).unwrap();
+    writeln!(md, "| Mode de veille | {} |", opt(&hardware.power_profile.sleep_mode)).unwrap();
+    writeln!(md).unwrap();
 }
 
 fn write_browsers(md: &mut String, report: &SystemReport) {

@@ -9,6 +9,10 @@ struct VideoController {
     name: Option<String>,
     #[serde(rename = "AdapterCompatibility")]
     adapter_compatibility: Option<String>,
+    #[serde(rename = "AdapterRAM")]
+    adapter_ram: Option<u64>,
+    #[serde(rename = "DriverVersion")]
+    driver_version: Option<String>,
 }
 
 pub fn collect() -> Vec<GpuInfo> {
@@ -25,6 +29,10 @@ pub fn collect() -> Vec<GpuInfo> {
             c.name.map(|name| GpuInfo {
                 name,
                 vendor: c.adapter_compatibility,
+                // `AdapterRAM` est un compteur 32 bits côté WMI : peu fiable
+                // au-delà de 4 Go (limitation connue, cf. bilan.md).
+                vram_mb: c.adapter_ram.map(|bytes| bytes / 1_000_000),
+                driver_version: c.driver_version,
             })
         })
         .collect()

@@ -1,5 +1,22 @@
 use super::ServiceInfo;
 
+fn parse_units(text: &str) -> Vec<ServiceInfo> {
+    text.lines()
+        .filter_map(|line| {
+            let mut fields = line.split_whitespace();
+            let name = fields.next()?.to_string();
+            // colonnes : LOAD ACTIVE SUB DESCRIPTION...
+            let _load = fields.next()?;
+            let active = fields.next()?;
+            let sub = fields.next().unwrap_or("");
+            Some(ServiceInfo {
+                name,
+                status: format!("{active}/{sub}"),
+            })
+        })
+        .collect()
+}
+
 /// `systemctl list-units` en mode utilisateur est en lecture seule.
 pub fn collect() -> Vec<ServiceInfo> {
     let Some(text) = crate::command::run(
@@ -16,18 +33,17 @@ pub fn collect() -> Vec<ServiceInfo> {
         return Vec::new();
     };
 
-    text.lines()
-        .filter_map(|line| {
-            let mut fields = line.split_whitespace();
-            let name = fields.next()?.to_string();
-            // colonnes : LOAD ACTIVE SUB DESCRIPTION...
-            let _load = fields.next()?;
-            let active = fields.next()?;
-            let sub = fields.next().unwrap_or("");
-            Some(ServiceInfo {
-                name,
-                status: format!("{active}/{sub}"),
-            })
-        })
-        .collect()
+    parse_units(&text)
+}
+
+/// `systemctl --failed` en mode utilisateur est en lecture seule.
+pub fn collect_failed() -> Vec<ServiceInfo> {
+    let Some(text) = crate::command::run(
+        "systemctl",
+        &["list-units", "--failed", "--no-legend", "--no-pager", "--plain"],
+    ) else {
+        return Vec::new();
+    };
+
+    parse_units(&text)
 }

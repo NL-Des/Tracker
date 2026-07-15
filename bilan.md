@@ -34,11 +34,15 @@
 
 `collect()` retourne un tuple (disques physiques, montages virtuels), séparés selon que `kind == "Unknown"` (overlay Docker/containerd, etc.). Exposés dans `HardwareInfo` sous deux champs distincts : `disks` et `virtual_disks`.
 
-#### Réseau (`src/hardware/network.rs` → `NetworkInfo`)
+#### Réseau (`src/hardware/network.rs` → `NetworkInfo`, sous-modules OS pour les détails par interface)
 - `interfaces: Vec<NetworkInterfaceInfo>` :
   - `interface_name: String`
   - `received_bytes: u64` — cumulé depuis le démarrage
   - `transmitted_bytes: u64` — cumulé depuis le démarrage
+  - `mac_address: Option<String>` — Linux via `/sys/class/net/<iface>/address` ; Windows via WMI `Win32_NetworkAdapterConfiguration` ; macOS via `ifconfig` (`ether`). Lecture libre.
+  - `ipv4_addresses: Vec<String>` / `ipv6_addresses: Vec<String>` — Linux via `ip -o addr show` ; Windows via WMI `Win32_NetworkAdapterConfiguration.IPAddress` ; macOS via `ifconfig` (`inet`/`inet6`).
+  - `link_speed_mbps: Option<u64>` — Linux via `/sys/class/net/<iface>/speed` (souvent `None` si interface down) ; Windows via WMI `Win32_NetworkAdapter.Speed`. Non implémenté sur macOS (pas de source lecture-libre identifiée).
+  - `connection_type: Option<String>` — `"wired"`/`"wifi"`/`"loopback"`/`"virtual"`, Linux via présence de `/sys/class/net/<iface>/wireless` ; Windows via WMI `Win32_NetworkAdapter.AdapterType`. Non implémenté sur macOS.
 - `default_gateway: Option<String>` — passerelle par défaut, via `ip route show default` (Linux, lecture libre)
 - `dns_servers: Vec<String>` — serveurs DNS configurés, via `/etc/resolv.conf` (Linux, lecture libre)
 
@@ -86,6 +90,8 @@ Via `lspci` (Linux), `system_profiler SPPCIDataType` (macOS), WMI `Win32_PnPEnti
 #### GPU (`src/hardware/gpu.rs` → `Vec<GpuInfo>`, OS-specific)
 - `name: String`
 - `vendor: Option<String>`
+- `vram_mb: Option<u64>` — Linux via sysfs `mem_info_vram_total` (AMD) avec repli sur `nvidia-smi` (NVIDIA propriétaire) ; Windows via WMI `Win32_VideoController.AdapterRAM` (peu fiable au-delà de 4 Go, limitation connue du champ) ; macOS via `system_profiler SPDisplaysDataType` (clé "VRAM (Total)").
+- `driver_version: Option<String>` — Linux via `nvidia-smi` uniquement (pas d'équivalent sysfs générique) ; Windows via WMI `Win32_VideoController.DriverVersion` ; macOS : pas de numéro de version driver classique, le support Metal ("Metal Support") est utilisé comme information la plus proche disponible.
 
 #### Écrans (`src/hardware/display_monitor.rs` → `Vec<MonitorInfo>`, via `display-info`)
 - `name: String`
@@ -133,6 +139,15 @@ Note : pas de classification fine (stockage/réseau/autre), jugé hors scope pou
 - `name: String`
 - `speed_rpm: Option<u32>` — souvent absent sur laptops. Pas de champ marque/modèle : cette info vit dans les tables SMBIOS (type 27), inaccessible sans droits root.
 
+#### Disposition du stockage (`src/hardware/storage_layout.rs` → `StorageLayoutInfo`, OS-specific)
+- `partitions: Vec<PartitionInfo>` (`device`, `fs_type`, `size_gb`) — Linux via `lsblk -J -b` ; macOS via `diskutil list` (parsing heuristique) ; Windows via WMI `Win32_LogicalDisk`. Complète les points de montage déjà collectés par `disks.rs`.
+- `lvm_volumes: Vec<LvmVolumeInfo>` (`vg_name`, `lv_name`, `size_gb`) — Linux via `lvs`, absent si LVM non installé. Pas d'équivalent macOS/Windows.
+- `raid_arrays: Vec<RaidArrayInfo>` (`device`, `level`, `state`, `devices`) — Linux via `/proc/mdstat` (RAID logiciel `mdadm`, lecture libre). Pas d'équivalent macOS/Windows dans ce périmètre.
+
+#### Profil d'alimentation (`src/hardware/power_profile.rs` → `PowerProfileInfo`, OS-specific)
+- `profile: Option<String>` — Linux via `powerprofilesctl get` (démon `power-profiles-daemon`, absent sur certaines distributions) ; Windows via `powercfg /getactivescheme`. Pas de notion de profil nommé sur macOS.
+- `sleep_mode: Option<String>` — Linux via `/sys/power/mem_sleep` (mode entre crochets) ; macOS via `pmset -g` (`hibernatemode`, information la plus proche disponible). Non implémenté sur Windows.
+
 Toutes ces catégories sont infaillibles par design : absence de périphérique détectable ou erreur d'accès matériel renvoient simplement un `Vec` vide (ou des `Vec` vides pour `InputDevices`).
 
 ### Logiciel
@@ -177,6 +192,7 @@ Note : liste les comptes système (type `/etc/passwd`), pas les sessions actuell
 #### Services / démons (`src/software/services.rs` → `Vec<ServiceInfo>`, OS-specific)
 - `name: String`, `status: String`
 - Via `systemctl list-units --type=service` (Linux), `launchctl list` (macOS), WMI `Win32_Service` (Windows) — tous en lecture seule, aucune élévation requise.
+- `collect_failed()` (champ `failed_services` dans `SoftwareInfo`) : unités en échec uniquement, via `systemctl --failed` (Linux). Pas de notion équivalente stricte sur macOS/Windows → `Vec` vide.
 
 #### Tâches planifiées (`src/software/scheduled_tasks.rs` → `Vec<ScheduledTaskInfo>`, OS-specific)
 - `name: String` (commande), `schedule: String`
@@ -208,6 +224,34 @@ Note : liste les comptes système (type `/etc/passwd`), pas les sessions actuell
 - `name: String`, `size_bytes: u64`
 - Via `/proc/modules` (Linux, lecture libre), `kextstat` (macOS), WMI `Win32_SystemDriver` (Windows, taille non disponible → `0`).
 
+#### Images Docker (`src/software/docker.rs` → `Vec<DockerImageInfo>`, OS-specific)
+- `repository: String`, `tag: String`, `image_id: String`, `size: String`, `created: String`
+- Via le CLI `docker` (ex : `docker images`). Infaillible par design : absence du CLI ou erreur d'accès renvoie un `Vec` vide. Lecture seule, aucune élévation requise.
+
+#### Volumes Docker (`src/software/docker.rs` → `Vec<DockerVolumeInfo>`, OS-specific)
+- `name: String`, `driver: String`, `mountpoint: Option<String>`
+- Via le CLI `docker` (ex : `docker volume ls`/`inspect`). Mêmes garanties que les images Docker ci-dessus.
+
+#### Machines virtuelles (`src/software/virtual_machines.rs` → `Vec<VirtualMachineInfo>`, OS-specific)
+- `name: String`, `hypervisor: String`, `state: String`, `identifier: Option<String>`
+- Via `VBoxManage` (VirtualBox) et `virsh` (libvirt/KVM) selon disponibilité. Infaillible par design : absence d'outil ou erreur d'accès renvoie un `Vec` vide. Lecture seule, aucune élévation requise.
+
+#### Images/volumes Podman (`src/software/podman.rs` → `Vec<DockerImageInfo>`/`Vec<DockerVolumeInfo>`, mêmes structs que Docker)
+- Réutilise les structs `DockerImageInfo`/`DockerVolumeInfo` définies dans `docker.rs` (le CLI `podman` a une surface quasi identique à `docker`). Exposé sous `podman_images`/`podman_volumes` dans `SoftwareInfo`.
+- Containerd (`ctr`) volontairement non couvert : son socket nécessite généralement root, ce qui sortirait du périmètre "sans droits admin" du projet.
+
+#### Polices installées (`src/software/fonts.rs` → `FontsSummary`)
+- `total_count: usize`, `families: Vec<String>` (dédoublonnées, triées)
+- Via `fc-list : family` (fontconfig, Linux et macOS si installé) ; Windows via énumération des valeurs de la clé de registre `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts` (lecture, pas d'admin requis).
+
+#### Configuration proxy système (`src/software/proxy_config.rs` → `Option<ProxyConfigInfo>`)
+- `http_proxy: Option<String>`, `https_proxy: Option<String>`, `no_proxy: Option<String>`, `source: String` (`"env"`/`"gsettings"`/`"scutil"`/`"registry"`)
+- Vérifie d'abord les variables d'environnement standard (`HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY`), puis retombe sur la config système : `gsettings` (GNOME, Linux), `scutil --proxy` (macOS), registre `HKEY_CURRENT_USER\...\Internet Settings` (Windows, HKCU donc pas d'admin requis). `None` si aucune configuration détectée.
+
+#### Clés SSH (`src/software/ssh_keys.rs` → `Vec<SshKeyInfo>`, cross-plateforme)
+- `file_name: String`, `key_type: Option<String>`, `fingerprint: Option<String>`
+- Scanne uniquement `~/.ssh/*.pub` (jamais le contenu d'une clé privée). Type extrait du contenu du fichier public, empreinte via `ssh-keygen -lf`.
+
 ### Navigateurs (`src/browsers/mod.rs` → `Vec<BrowserInfo>`, OS-specific)
 - `name: String`
 - `version: Option<String>` — obtenue en exécutant `--version`
@@ -237,10 +281,15 @@ Tout ceci est sérialisé dans `tracker_report.json` à la racine du projet.
 - Adresse IP publique (nécessiterait une requête sortante ; adresse IP locale/passerelle/DNS déjà collectés, cf. Liste 1).
 - Classification fine des périphériques USB (stockage/réseau/autre, via descripteurs d'interface).
 - Firmware/microcode CPU, version TPM.
+- **Vitesse de liaison réseau et type de connexion sur macOS** — implémentés sur Linux/Windows (cf. Liste 1), pas de source lecture-libre identifiée sur macOS pour l'instant.
+- **RAID logiciel / LVM sur macOS et Windows** — implémentés sur Linux (`/proc/mdstat`, `lvs`), pas d'équivalent direct identifié sur les deux autres OS (Storage Spaces sur Windows nécessiterait des classes WMI plus complexes).
 
 ### Logiciel / OS
 - Historique de démarrage (crashs, temps de boot).
 - Logs système récents (erreurs noyau, journaux d'événements) — nécessite généralement root pour les logs complets (`dmesg`, `journalctl` sans droits limité à la session courante).
+- **Containerd** (`ctr`/`nerdctl`) — volontairement non couvert : le socket containerd nécessite généralement root, hors périmètre "sans droits admin" du projet (Docker et Podman sont couverts, cf. Liste 1).
+
+> Volontairement exclu du périmètre pour rester non intrusif : historique du presse-papiers, liste des fichiers récemment ouverts, tout suivi fin de l'usage applicatif au-delà d'un instantané.
 
 ### Données d'usage / comportement (nécessiterait suivi dans le temps)
 - Temps d'utilisation par application (pas seulement instantané CPU/mémoire).
@@ -274,7 +323,7 @@ Tout ceci est sérialisé dans `tracker_report.json` à la racine du projet.
 - **Numéro de série RAM (Windows)** : WMI `Win32_PhysicalMemory.SerialNumber` sans admin. (Sur Linux, `dmidecode -t 17` nécessite root ; pas d'équivalent sysfs non privilégié fiable.)
 - **Fabricant/modèle/numéro de série des écrans (EDID)** : Linux via `/sys/class/drm/*/edid` (lecture libre) ; Windows via WMI `WmiMonitorID` (namespace `root/wmi`, pas d'admin requis).
 - **Numéro de série batterie** : déjà exposé par `starship-battery` (`serial_number()`), aucune élévation requise.
-- **Adresse MAC des interfaces réseau** : Linux via `/sys/class/net/*/address` (lecture libre) ; Windows/macOS sans privilège particulier. Non implémenté (pas dans Liste 1).
+- **Adresse MAC des interfaces réseau** : Linux via `/sys/class/net/*/address` (lecture libre) ; Windows/macOS sans privilège particulier — implémenté, cf. Liste 1.
 - **IP publique** (via une requête sortante) : aucune élévation requise, mais nécessiterait une connexion réseau sortante du projet (non implémenté).
 
 ### Nécessite systématiquement root/admin
