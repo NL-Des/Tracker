@@ -5,6 +5,8 @@ mod macos;
 #[cfg(target_os = "windows")]
 mod windows;
 
+mod extensions;
+
 use serde::Serialize;
 use std::path::Path;
 
@@ -21,8 +23,9 @@ pub struct BrowserInfo {
     pub version: Option<String>,
     pub path: Option<String>,
     pub is_default: bool,
-    /// Non peuplé pour l'instant (hors scope actuel) : la struct reste prête
-    /// pour une future extension "extensions installées" sans casser le schéma JSON.
+    /// Extensions installées, lues dans le profil par défaut de
+    /// l'utilisateur courant (lecture seule, aucune élévation requise).
+    /// `None` si le profil n'a pas pu être localisé.
     pub extensions: Option<Vec<BrowserExtensionInfo>>,
 }
 

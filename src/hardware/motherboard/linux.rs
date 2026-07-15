@@ -16,10 +16,12 @@ pub fn collect() -> MotherboardInfo {
         vendor: read_dmi_field("board_vendor"),
         model: read_dmi_field("board_name"),
         version: read_dmi_field("board_version"),
+        serial_number: read_dmi_field("board_serial"),
         bios_vendor: read_dmi_field("bios_vendor"),
         bios_version: read_dmi_field("bios_version"),
         bios_date: read_dmi_field("bios_date"),
         machine_uuid: read_dmi_field("product_uuid"),
         secure_boot: None,
+        tpm_version: None,
     }
 }

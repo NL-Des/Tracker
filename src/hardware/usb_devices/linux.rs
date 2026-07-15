@@ -21,10 +21,14 @@ pub fn collect() -> Vec<UsbDeviceInfo> {
         let path = entry.path();
         let class = fs::read_to_string(path.join("bDeviceClass"))
             .ok()
-            .map(|s| s.trim().to_string());
+            .map(|s| s.trim().to_lowercase());
         if class.as_deref() == Some(USB_CLASS_HUB) {
             continue;
         }
+        let device_class = class
+            .as_deref()
+            .and_then(super::usb_class_name)
+            .map(|s| s.to_string());
 
         let Ok(product) = fs::read_to_string(path.join("product")) else {
             continue;
@@ -42,6 +46,7 @@ pub fn collect() -> Vec<UsbDeviceInfo> {
         devices.push(UsbDeviceInfo {
             name: product,
             vendor,
+            device_class,
         });
     }
 

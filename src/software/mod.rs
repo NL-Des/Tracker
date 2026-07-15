@@ -13,6 +13,7 @@ pub mod podman;
 pub mod processes;
 pub mod proxy_config;
 pub mod scheduled_tasks;
+pub mod security_status;
 pub mod services;
 pub mod ssh_keys;
 pub mod update_history;
@@ -47,6 +48,7 @@ pub struct SoftwareInfo {
     pub fonts: fonts::FontsSummary,
     pub proxy_config: Option<proxy_config::ProxyConfigInfo>,
     pub ssh_keys: Vec<ssh_keys::SshKeyInfo>,
+    pub security_status: security_status::SecurityStatusInfo,
 }
 
 pub fn collect(sys: &System) -> SoftwareInfo {
@@ -74,5 +76,6 @@ pub fn collect(sys: &System) -> SoftwareInfo {
         fonts: fonts::collect(),
         proxy_config: proxy_config::collect(),
         ssh_keys: ssh_keys::collect(),
+        security_status: security_status::collect(),
     }
 }

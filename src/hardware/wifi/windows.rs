@@ -23,10 +23,13 @@ pub fn collect() -> Vec<WifiNetworkInfo> {
     let signal_percent = parse_field(&text, "Signal")
         .and_then(|v| v.trim_end_matches('%').parse::<i32>().ok());
     let interface = parse_field(&text, "Name");
+    let link_rate_mbps = parse_field(&text, "Receive rate (Mbps)")
+        .and_then(|v| v.parse::<f64>().ok());
 
     vec![WifiNetworkInfo {
         ssid,
         signal_percent,
         interface,
+        link_rate_mbps,
     }]
 }

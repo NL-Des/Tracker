@@ -19,6 +19,11 @@ pub struct NetworkInterfaceInfo {
     pub ipv6_addresses: Vec<String>,
     pub link_speed_mbps: Option<u64>,
     pub connection_type: Option<String>,
+    /// Débit instantané mesuré par double échantillonnage des compteurs
+    /// cumulés (`sysinfo`) espacé d'un court intervalle, plutôt qu'un débit
+    /// moyen depuis le démarrage. Aucune commande externe, cross-plateforme.
+    pub throughput_rx_mbps: Option<f64>,
+    pub throughput_tx_mbps: Option<f64>,
 }
 
 #[derive(Serialize)]
@@ -52,8 +57,21 @@ fn empty_details() -> InterfaceDetails {
     }
 }
 
+/// Intervalle d'échantillonnage pour le calcul du débit instantané. Assez
+/// court pour ne pas ralentir sensiblement la collecte, assez long pour
+/// lisser le bruit d'un échantillon trop bref.
+const THROUGHPUT_SAMPLE_INTERVAL: std::time::Duration = std::time::Duration::from_millis(300);
+
 fn collect_interfaces() -> Vec<NetworkInterfaceInfo> {
-    let networks = Networks::new_with_refreshed_list();
+    let mut networks = Networks::new_with_refreshed_list();
+    let before: HashMap<String, (u64, u64)> = networks
+        .iter()
+        .map(|(name, data)| (name.clone(), (data.received(), data.transmitted())))
+        .collect();
+
+    std::thread::sleep(THROUGHPUT_SAMPLE_INTERVAL);
+    networks.refresh(true);
+
     let mut details: HashMap<String, InterfaceDetails> = crate::os_dispatch::dispatch_os!(
         linux::all_details(),
         macos::all_details(),
@@ -61,10 +79,19 @@ fn collect_interfaces() -> Vec<NetworkInterfaceInfo> {
         HashMap::new()
     );
 
+    let interval_secs = THROUGHPUT_SAMPLE_INTERVAL.as_secs_f64();
+
     networks
         .iter()
         .map(|(interface_name, data)| {
             let d = details.remove(interface_name).unwrap_or_else(empty_details);
+            let (rx_mbps, tx_mbps) = match before.get(interface_name) {
+                Some(&(rx_before, tx_before)) => (
+                    mbps_delta(rx_before, data.received(), interval_secs),
+                    mbps_delta(tx_before, data.transmitted(), interval_secs),
+                ),
+                None => (None, None),
+            };
             NetworkInterfaceInfo {
                 interface_name: interface_name.clone(),
                 received_bytes: data.received(),
@@ -74,9 +101,19 @@ fn collect_interfaces() -> Vec<NetworkInterfaceInfo> {
                 ipv6_addresses: d.ipv6_addresses,
                 link_speed_mbps: d.link_speed_mbps,
                 connection_type: d.connection_type,
+                throughput_rx_mbps: rx_mbps,
+                throughput_tx_mbps: tx_mbps,
             }
         })
         .collect()
+}
+
+/// Convertit un delta d'octets cumulés sur `interval_secs` en Mbps.
+/// `None` en cas de compteur qui repart à zéro (interface réinitialisée
+/// entre les deux échantillons) plutôt qu'une valeur négative absurde.
+fn mbps_delta(before: u64, after: u64, interval_secs: f64) -> Option<f64> {
+    let delta_bytes = after.checked_sub(before)?;
+    Some((delta_bytes as f64 * 8.0) / interval_secs / 1_000_000.0)
 }
 
 fn read_default_gateway() -> Option<String> {

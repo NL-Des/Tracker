@@ -1,5 +1,5 @@
-use super::BrowserInfo;
-use std::path::Path;
+use super::{extensions, BrowserExtensionInfo, BrowserInfo};
+use std::path::{Path, PathBuf};
 
 const KNOWN_BUNDLES: &[(&str, &str)] = &[
     ("Google Chrome", "Google Chrome.app"),
@@ -12,6 +12,44 @@ const KNOWN_BUNDLES: &[(&str, &str)] = &[
 ];
 
 const APPLICATIONS_DIRS: &[&str] = &["/Applications", "/System/Applications"];
+
+/// Dossier de profil Chromium par défaut sous
+/// `~/Library/Application Support/<dir>/Default`, par nom affiché.
+const CHROMIUM_SUPPORT_DIRS: &[(&str, &str)] = &[
+    ("Google Chrome", "Google/Chrome"),
+    ("Microsoft Edge", "Microsoft Edge"),
+    ("Brave", "BraveSoftware/Brave-Browser"),
+    ("Opera", "com.operasoftware.Opera"),
+    ("Vivaldi", "Vivaldi"),
+];
+
+/// Best-effort : prend le premier profil trouvé (souvent le seul en
+/// pratique) plutôt que de parser `profiles.ini` comme sur Linux.
+fn firefox_profile_dir(home: &str) -> Option<PathBuf> {
+    let profiles_dir =
+        PathBuf::from(home).join("Library/Application Support/Firefox/Profiles");
+    let entries = std::fs::read_dir(profiles_dir).ok()?;
+    entries
+        .filter_map(|e| e.ok())
+        .find(|e| e.path().is_dir())
+        .map(|e| e.path())
+}
+
+fn read_extensions(display_name: &str, home: Option<&str>) -> Option<Vec<BrowserExtensionInfo>> {
+    let home = home?;
+    if display_name == "Mozilla Firefox" {
+        let profile_dir = firefox_profile_dir(home)?;
+        return Some(extensions::read_firefox_extensions(&profile_dir));
+    }
+    let (_, support_dir) = CHROMIUM_SUPPORT_DIRS
+        .iter()
+        .find(|(name, _)| *name == display_name)?;
+    let profile_dir = PathBuf::from(home)
+        .join("Library/Application Support")
+        .join(support_dir)
+        .join("Default");
+    Some(extensions::read_chromium_extensions(&profile_dir))
+}
 
 fn bundle_version(bundle_path: &Path) -> Option<String> {
     let plist_path = bundle_path.join("Contents/Info.plist").to_string_lossy().into_owned();
@@ -52,6 +90,7 @@ fn default_browser_bundle_id() -> Option<String> {
 
 pub fn collect() -> Vec<BrowserInfo> {
     let default_bundle_id = default_browser_bundle_id();
+    let home = std::env::var("HOME").ok();
 
     KNOWN_BUNDLES
         .iter()
@@ -72,7 +111,7 @@ pub fn collect() -> Vec<BrowserInfo> {
                     version,
                     path: Some(bundle_path.to_string_lossy().to_string()),
                     is_default,
-                    extensions: None,
+                    extensions: read_extensions(display_name, home.as_deref()),
                 })
             })
         })

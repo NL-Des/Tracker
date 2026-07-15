@@ -22,10 +22,12 @@ pub fn collect() -> Vec<WifiNetworkInfo> {
         .and_then(|v| v.parse::<i32>().ok())
         // RSSI en dBm (~ -30 excellent, -90 très faible) converti en % grossier.
         .map(|rssi| ((rssi + 90) * 100 / 60).clamp(0, 100));
+    let link_rate_mbps = parse_field(&text, "lastTxRate").and_then(|v| v.parse::<f64>().ok());
 
     vec![WifiNetworkInfo {
         ssid,
         signal_percent,
         interface: None,
+        link_rate_mbps,
     }]
 }

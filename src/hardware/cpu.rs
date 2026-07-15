@@ -23,6 +23,53 @@ pub struct CpuInfo {
     pub cores: Vec<CoreInfo>,
     pub vulnerabilities: Vec<VulnerabilityInfo>,
     pub scaling_governor: Option<String>,
+    pub processor_id: Option<String>,
+    /// Champ `microcode` de `/proc/cpuinfo`, lecture libre sur Linux ;
+    /// absent sur les autres OS (pas de source non privilégiée identifiée).
+    pub microcode_version: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+#[cfg(target_os = "windows")]
+#[serde(rename = "Win32_Processor")]
+struct WmiProcessor {
+    #[serde(rename = "ProcessorId")]
+    processor_id: Option<String>,
+}
+
+/// `ProcessorId` CPU (numéro de série logique du CPU) via WMI. Namespace WMI
+/// par défaut (`ROOT\CIMV2`), aucune élévation requise.
+#[cfg(target_os = "windows")]
+fn read_processor_id() -> Option<String> {
+    let con = wmi::WMIConnection::new().ok()?;
+    let mut processors: Vec<WmiProcessor> = con.query().ok()?;
+    processors.pop()?.processor_id
+}
+
+#[cfg(not(target_os = "windows"))]
+fn read_processor_id() -> Option<String> {
+    None
+}
+
+/// Version du microcode CPU actuellement chargé, lecture libre sur Linux
+/// (`/proc/cpuinfo`) ; pas de source non privilégiée simple identifiée sur
+/// les autres OS.
+#[cfg(target_os = "linux")]
+fn read_microcode_version() -> Option<String> {
+    let text = std::fs::read_to_string("/proc/cpuinfo").ok()?;
+    text.lines().find_map(|line| {
+        let (key, value) = line.split_once(':')?;
+        if key.trim() == "microcode" {
+            Some(value.trim().to_string())
+        } else {
+            None
+        }
+    })
+}
+
+#[cfg(not(target_os = "linux"))]
+fn read_microcode_version() -> Option<String> {
+    None
 }
 
 /// Statuts des mitigations Spectre/Meltdown/etc. Lecture libre sur Linux
@@ -80,5 +127,7 @@ pub fn collect(sys: &System) -> CpuInfo {
             .collect(),
         vulnerabilities: read_vulnerabilities(),
         scaling_governor: read_scaling_governor(),
+        processor_id: read_processor_id(),
+        microcode_version: read_microcode_version(),
     }
 }

@@ -1,7 +1,43 @@
-use super::{try_get_version, BrowserInfo};
+use super::{extensions, try_get_version, BrowserExtensionInfo, BrowserInfo};
 use std::path::PathBuf;
 use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
 use winreg::RegKey;
+
+/// Dossier de profil Chromium par défaut sous
+/// `%LOCALAPPDATA%\<dir>\User Data\Default`, par nom de clé de registre
+/// `StartMenuInternet` (ex. "Google Chrome", "Microsoft Edge").
+const CHROMIUM_LOCALAPPDATA_DIRS: &[(&str, &str)] = &[
+    ("Google Chrome", r"Google\Chrome"),
+    ("Microsoft Edge", r"Microsoft\Edge"),
+    ("Brave", r"BraveSoftware\Brave-Browser"),
+    ("Opera", r"Opera Software\Opera Stable"),
+    ("Vivaldi", r"Vivaldi"),
+];
+
+/// Best-effort : prend le premier profil trouvé (souvent le seul en
+/// pratique) plutôt que de parser `profiles.ini` comme sur Linux.
+fn firefox_profile_dir(appdata: &str) -> Option<PathBuf> {
+    let profiles_dir = PathBuf::from(appdata).join(r"Mozilla\Firefox\Profiles");
+    let entries = std::fs::read_dir(profiles_dir).ok()?;
+    entries
+        .filter_map(|e| e.ok())
+        .find(|e| e.path().is_dir())
+        .map(|e| e.path())
+}
+
+fn read_extensions(key_name: &str) -> Option<Vec<BrowserExtensionInfo>> {
+    if key_name.to_lowercase().contains("firefox") {
+        let appdata = std::env::var("APPDATA").ok()?;
+        let profile_dir = firefox_profile_dir(&appdata)?;
+        return Some(extensions::read_firefox_extensions(&profile_dir));
+    }
+    let local_appdata = std::env::var("LOCALAPPDATA").ok()?;
+    let (_, dir) = CHROMIUM_LOCALAPPDATA_DIRS
+        .iter()
+        .find(|(name, _)| key_name.to_lowercase().contains(&name.to_lowercase()))?;
+    let profile_dir = PathBuf::from(local_appdata).join(dir).join(r"User Data\Default");
+    Some(extensions::read_chromium_extensions(&profile_dir))
+}
 
 fn default_browser_prog_id() -> Option<String> {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
@@ -47,7 +83,7 @@ pub fn collect() -> Vec<BrowserInfo> {
                 version,
                 path: Some(exe_path),
                 is_default,
-                extensions: None,
+                extensions: read_extensions(&key_name),
             })
         })
         .collect()

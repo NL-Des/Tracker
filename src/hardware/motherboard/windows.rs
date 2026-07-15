@@ -11,6 +11,8 @@ struct BaseBoard {
     product: Option<String>,
     #[serde(rename = "Version")]
     version: Option<String>,
+    #[serde(rename = "SerialNumber")]
+    serial_number: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -45,6 +47,7 @@ pub fn collect() -> MotherboardInfo {
             info.vendor = board.manufacturer;
             info.model = board.product;
             info.version = board.version;
+            info.serial_number = board.serial_number;
         }
     }
 

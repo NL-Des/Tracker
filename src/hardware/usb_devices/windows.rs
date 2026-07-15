@@ -35,6 +35,7 @@ pub fn collect() -> Vec<UsbDeviceInfo> {
             e.name.map(|name| UsbDeviceInfo {
                 name,
                 vendor: e.manufacturer,
+                device_class: e.pnp_class,
             })
         })
         .collect()

@@ -1,3 +1,10 @@
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg(target_os = "macos")]
+mod macos;
+#[cfg(target_os = "windows")]
+mod windows;
+
 use serde::Serialize;
 use sysinfo::{Disk, Disks};
 
@@ -10,6 +17,11 @@ pub struct DiskInfo {
     pub is_removable: bool,
     pub total_gb: u64,
     pub used_gb: u64,
+    /// Modèle et numéro de série du disque physique sous-jacent. Lecture
+    /// libre sur Linux (sysfs) et Windows (WMI) ; best-effort sur macOS
+    /// (`diskutil info` n'expose pas toujours un vrai numéro de série).
+    pub model: Option<String>,
+    pub serial: Option<String>,
     /// Santé S.M.A.R.T. sommaire ("PASSED"/"FAILED"), via `smartctl -H`.
     /// Souvent lisible sans root sur NVMe (contrairement au SATA/ATA qui
     /// nécessite généralement des privilèges pour les commandes ATA brutes).
@@ -30,23 +42,39 @@ fn read_smart_health(device_name: &str) -> Option<String> {
     })
 }
 
+/// Modèle/numéro de série du disque physique, via le device (Linux/macOS)
+/// ou le point de montage (Windows, ex. `C:\`) selon la plateforme.
+#[allow(unused_variables)]
+fn read_model_serial(device_name: &str, mount_point: &str) -> (Option<String>, Option<String>) {
+    crate::os_dispatch::dispatch_os!(
+        linux::read(device_name),
+        macos::read(device_name),
+        windows::read(mount_point),
+        (None, None)
+    )
+}
+
 fn map_disk(disk: &Disk) -> DiskInfo {
     let total_gb = disk.total_space() / 1024 / 1024 / 1024;
     let available_gb = disk.available_space() / 1024 / 1024 / 1024;
     let name = disk.name().to_string_lossy().to_string();
+    let mount_point = disk.mount_point().to_string_lossy().to_string();
     let smart_health = if name.contains("nvme") {
         read_smart_health(&name)
     } else {
         None
     };
+    let (model, serial) = read_model_serial(&name, &mount_point);
     DiskInfo {
         name,
         kind: disk.kind().to_string(),
         file_system: disk.file_system().to_string_lossy().to_string(),
-        mount_point: disk.mount_point().to_string_lossy().to_string(),
+        mount_point,
         is_removable: disk.is_removable(),
         total_gb,
         used_gb: total_gb - available_gb,
+        model,
+        serial,
         smart_health,
     }
 }

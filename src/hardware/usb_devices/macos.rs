@@ -17,6 +17,10 @@ pub fn collect() -> Vec<UsbDeviceInfo> {
                 .iter()
                 .any(|label| name.contains(label))
         })
-        .map(|name| UsbDeviceInfo { name, vendor: None })
+        .map(|name| UsbDeviceInfo {
+            name,
+            vendor: None,
+            device_class: None,
+        })
         .collect()
 }

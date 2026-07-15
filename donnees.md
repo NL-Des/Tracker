@@ -5,22 +5,22 @@
 ## Liste 1 — Données actuellement collectées (collectées par le code existant)
 
 ### Matériel (`src/hardware/`, agrégé dans `HardwareInfo`, 19 modules)
-- **CPU** (`cpu.rs`) : architecture, cœurs (usage/fréquence/marque par cœur), usage global, vulnérabilités Spectre/Meltdown (Linux), gouverneur de fréquence (Linux).
-- **Mémoire** (`memory.rs`) : RAM/swap totale et utilisée.
-- **Disques** (`disks.rs`) : nom, type, système de fichiers, point de montage, amovible, taille, santé S.M.A.R.T. sommaire (NVMe). Disques physiques et montages virtuels séparés.
-- **Réseau** (`network.rs`) : interfaces (octets reçus/transmis cumulés, adresse MAC, adresses IPv4/IPv6, vitesse de liaison, type de connexion filaire/wifi/virtuel), passerelle par défaut, serveurs DNS (Linux).
-- **Wi-Fi** (`wifi.rs`) : SSID, force du signal, interface — connexion(s) active(s) uniquement.
+- **CPU** (`cpu.rs`) : architecture, cœurs (usage/fréquence/marque par cœur), usage global, vulnérabilités Spectre/Meltdown (Linux), gouverneur de fréquence (Linux), `ProcessorId` (Windows), version du microcode (Linux).
+- **Mémoire** (`memory.rs`) : RAM/swap totale et utilisée, détail par barrette (fabricant, numéro de série, capacité, fréquence — Windows uniquement).
+- **Disques** (`disks.rs`) : nom, type, système de fichiers, point de montage, amovible, taille, modèle et numéro de série (Linux/Windows, best-effort macOS), santé S.M.A.R.T. sommaire (NVMe). Disques physiques et montages virtuels séparés.
+- **Réseau** (`network.rs`) : interfaces (octets reçus/transmis cumulés, adresse MAC, adresses IPv4/IPv6, vitesse de liaison, type de connexion filaire/wifi/virtuel, débit instantané mesuré en Mbps), passerelle par défaut, serveurs DNS (Linux).
+- **Wi-Fi** (`wifi.rs`) : SSID, force du signal, interface, débit de liaison (Mbps) — connexion(s) active(s) uniquement.
 - **Périphériques PCI** (`pci_devices.rs`) : nom, classe.
 - **Capteurs/composants** (`components.rs`) : label, températures actuelle/max/critique.
-- **Batterie** (`battery.rs`) : fabricant, modèle, état, technologie, charge, santé, température, cycles, temps restant.
-- **Carte mère/BIOS** (`motherboard.rs`) : fabricant, modèle, version, infos BIOS, UUID machine (souvent inaccessible sans admin), état Secure Boot (Linux).
+- **Batterie** (`battery.rs`) : fabricant, modèle, numéro de série, état, technologie, charge, santé, température, cycles, temps restant.
+- **Carte mère/BIOS** (`motherboard.rs`) : fabricant, modèle, numéro de série (best-effort), version, infos BIOS, UUID machine (souvent inaccessible sans admin), état Secure Boot (Linux), version TPM (Linux/Windows).
 - **GPU** (`gpu.rs`) : nom, fabricant, VRAM (Mo), version driver.
-- **Écrans** (`display_monitor.rs`) : nom, dimensions, position, échelle, fréquence, écran principal/intégré.
+- **Écrans** (`display_monitor.rs`) : nom, dimensions, position, échelle, fréquence, écran principal/intégré, identifiants EDID (fabricant/modèle/série — Linux/Windows, best-effort, association par index).
 - **Lecteurs optiques/disquettes** (`optical_drives.rs`) : nom, fabricant, type.
 - **Périphériques génériques** (`peripherals.rs`) : nom, type (clavier, enceintes, ...).
 - **Souris / manettes / touchpads** (`input_devices.rs`) : nom, par catégorie.
 - **Caméras** (`camera.rs`) : nom.
-- **Périphériques USB** (`usb_devices.rs`) : nom, fabricant (sans classification fine).
+- **Périphériques USB** (`usb_devices.rs`) : nom, fabricant, classification de classe (best-effort, "None" si non déterminable).
 - **Périphériques Bluetooth appairés** (`bluetooth_devices.rs`) : nom.
 - **Imprimantes / scanners** (`printers.rs`) : nom, type.
 - **Ventilateurs** (`fans.rs`) : nom, vitesse RPM (souvent absente sur laptop).
@@ -30,7 +30,7 @@
 ### Logiciel (`src/software/`, agrégé dans `SoftwareInfo`, 16 modules)
 - **OS** (`os_info.rs`) : nom, version noyau/OS, nom d'hôte, uptime.
 - **Processus** (`processes.rs`) : nombre total + liste complète (PID, nom, CPU %, mémoire), triée par usage CPU.
-- **Comptes utilisateurs** (`users.rs`) : nom, UID, GID, groupes (comptes système, pas les sessions connectées).
+- **Comptes utilisateurs** (`users.rs`) : nom, UID, GID, groupes, indicateur admin/sudo (dérivé des groupes sur Linux/macOS, de `net localgroup administrators` sur Windows) — comptes système, pas les sessions connectées.
 - **Variables d'environnement** (`env_vars.rs`) : clé/valeur, avec redaction automatique (TOKEN/SECRET/KEY/PASSWORD/PWD/CREDENTIAL/AUTH).
 - **Applications installées** (`installed_apps.rs`) : nom, version, éditeur, source de détection.
 - **Runtimes de développement** (`dev_runtimes.rs`) : nom/version pour une liste courte (Python, Node.js, Java, Rust, Go, Ruby, PHP, .NET) si présents dans le `PATH`.
@@ -50,9 +50,10 @@
 - **Polices installées** (`fonts.rs`) : décompte + liste des familles dédoublonnées.
 - **Configuration proxy système** (`proxy_config.rs`) : proxy HTTP/HTTPS/exceptions et source de détection (env/gsettings/scutil/registre).
 - **Clés SSH** (`ssh_keys.rs`) : métadonnées des clés publiques uniquement (fichier, type, empreinte) — jamais le contenu privé.
+- **État de sécurité** (`security_status.rs`) : pare-feu actif (Windows/macOS, best-effort Linux), statut de chiffrement disque (LUKS/FileVault, `None` sur Windows sans élévation), produit antivirus (Windows uniquement, via WMI SecurityCenter2).
 
 ### Navigateurs (`src/browsers/`)
-- Nom, version (obtenue en exécutant `--version`), chemin, navigateur par défaut (bool), extensions (champ réservé, toujours `None` actuellement).
+- Nom, version (obtenue en exécutant `--version`), chemin, navigateur par défaut (bool), extensions installées (id/nom/version, lues dans le profil par défaut — Chrome/Chromium/Brave/Edge/Opera/Vivaldi et Firefox ; `None` si le profil n'a pas pu être localisé).
 
 ### Métadonnées du rapport (`src/report.rs`)
 - Horodatage de génération (Unix), version de l'outil, avertissements de collecte (ex. UUID inaccessible, aucun écran/GPU/navigateur détecté).
@@ -69,11 +70,7 @@ Tout ceci est sérialisé dans `tracker_report.json` à la racine du projet.
 - Santé disque S.M.A.R.T. détaillée (secteurs défectueux, durée de vie estimée, cycles d'écriture SSD) — seul le statut sommaire PASSED/FAILED sur NVMe est collecté ; SATA/ATA nécessite généralement root.
 - Courbes de refroidissement des ventilateurs et marque/modèle (vitesse RPM déjà collectée ; le reste vit dans les tables SMBIOS type 27, nécessite root).
 - Historique/courbe de charge de la batterie (dégradation dans le temps, pas juste une valeur instantanée).
-- Débit réseau instantané (Mbps) plutôt que juste les compteurs cumulés d'octets.
-- Qualité de connexion Wi-Fi détaillée (bande passante) — SSID/force du signal déjà collectés.
-- Adresse IP publique (nécessiterait une requête sortante ; adresse IP locale/passerelle/DNS déjà collectés).
-- Classification fine des périphériques USB (stockage/réseau/autre, via descripteurs d'interface).
-- Firmware/microcode CPU, version TPM.
+- Adresse IP publique (nécessiterait une requête sortante vers un service externe — hors périmètre pour l'instant, le projet reste sans dépendance réseau sortante ; adresse IP locale/passerelle/DNS déjà collectés).
 - **Vitesse de liaison réseau et type de connexion sur macOS** — implémentés sur Linux/Windows, pas de source lecture-libre identifiée sur macOS pour l'instant.
 - **RAID logiciel / LVM sur macOS et Windows** — implémentés sur Linux uniquement.
 
@@ -89,9 +86,6 @@ Tout ceci est sérialisé dans `tracker_report.json` à la racine du projet.
 
 > Volontairement exclu du périmètre pour rester non intrusif : historique du presse-papiers, liste des fichiers récemment ouverts, tout suivi fin de l'usage applicatif au-delà d'un instantané.
 
-### Navigateurs
-- Extensions installées par navigateur (nom, version, éditeur, permissions demandées) — le champ `extensions` existe déjà dans `BrowserInfo` mais n'est jamais rempli (`None`) actuellement.
-
 ### Métadonnées / qualité de collecte
 - Bilan structuré (et non une simple liste de messages texte) : pour chaque champ attendu, statut collecté/échoué + raison de l'échec (permissions insuffisantes, capteur absent, plateforme non supportée, etc.), plutôt que la liste actuelle de chaînes libres dans `collection_warnings`.
 
@@ -103,30 +97,11 @@ Tout ceci est sérialisé dans `tracker_report.json` à la racine du projet.
 - Vulnérabilités connues (CVE) pour les logiciels installés détectés.
 
 ### Sécurité / conformité
-- État du pare-feu (activé/désactivé, règles).
-- État de l'antivirus/EDR.
-- Chiffrement de disque (BitLocker/FileVault/LUKS actif ou non).
-- Comptes avec privilèges administrateur/sudo.
-
-### Accessible sans privilèges root/admin (parmi les points ci-dessus)
-- **Marque/modèle CPU** : déjà présent (`brand`), aucune élévation requise.
-- **`ProcessorId` CPU (Windows)** : via WMI `Win32_Processor`, pas d'admin requis.
-- **Modèle/numéro de série des disques** : Linux via `/sys/block/*/device/{model,serial}` (lecture libre) ; Windows via WMI `Win32_DiskDrive` (pas d'admin requis) ; macOS via `diskutil info` (non privilégié).
-- **Numéro de série de la carte mère (Windows)** : WMI `Win32_BaseBoard.SerialNumber` sans admin. (Sur Linux, `/sys/class/dmi/id/board_serial` est souvent restreint root-only selon la distribution — à vérifier au cas par cas.)
-- **Numéro de série RAM (Windows)** : WMI `Win32_PhysicalMemory.SerialNumber` sans admin. (Sur Linux, `dmidecode -t 17` nécessite root ; pas d'équivalent sysfs non privilégié fiable.)
-- **Fabricant/modèle/numéro de série des écrans (EDID)** : Linux via `/sys/class/drm/*/edid` (lecture libre) ; Windows via WMI `WmiMonitorID` (namespace `root/wmi`, pas d'admin requis).
-- **Numéro de série batterie** : déjà exposé par `starship-battery` (`serial_number()`), aucune élévation requise.
-- **Adresse MAC des interfaces réseau** : Linux via `/sys/class/net/*/address` (lecture libre) ; Windows/macOS sans privilège particulier — implémenté.
-- **Vitesse ventilateurs (RPM)** : Linux via `/sys/class/hwmon/*/fan*_input` (lecture libre, pas root) — déjà implémenté.
-- **Services/démons actifs** : `systemctl list-units` (Linux), `Get-Service` (Windows), `launchctl list` (macOS) — lecture seule, pas d'admin — déjà implémenté.
-- **Ports réseau ouverts / connexions actives** : `ss`/`netstat` en mode utilisateur listent déjà les connexions du propre utilisateur (liste complète tous utilisateurs peut nécessiter root selon l'OS) — déjà implémenté pour le propre utilisateur.
-- **Paquets installés (apt/brew/npm/cargo)** : toujours accessible sans élévation — déjà implémenté.
-- **Historique des mises à jour** (logs `apt history`, Windows Update history) : généralement lisible sans admin — déjà implémenté.
-- **IP locale et IP publique** (via une requête sortante) : aucune élévation requise pour l'IP locale (déjà implémentée via passerelle/DNS) ; IP publique non implémentée (nécessite une requête réseau sortante).
+- État du pare-feu, chiffrement de disque, produit antivirus : implémentés en best-effort sans admin (voir `security_status.rs` en Liste 1) — reste non couvert : règles de pare-feu détaillées, statut BitLocker sur Windows (nécessite une élévation en pratique malgré la documentation Microsoft).
 
 ### Nécessite systématiquement root/admin
 - UUID machine (`/sys/class/dmi/id/product_uuid` sur Linux).
 - `dmidecode` sur Linux (BIOS bas niveau, RAM détaillée si sysfs insuffisant).
 - Historique boot/crash détaillé, logs noyau complets (`dmesg` complet).
 - Liste de tous les ports ouverts par tous les utilisateurs (selon OS).
-- État antivirus/EDR, chiffrement de disque, règles de pare-feu détaillées.
+- Règles de pare-feu détaillées, statut BitLocker sur Windows (`manage-bde`/`Get-BitLockerVolume` exigent une élévation en pratique).

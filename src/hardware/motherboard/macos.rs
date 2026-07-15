@@ -19,10 +19,15 @@ pub fn collect() -> MotherboardInfo {
         model: parse_field(&text, "Model Identifier")
             .or_else(|| parse_field(&text, "Model Name")),
         version: None,
+        // "Serial Number (system)" est le numéro de série du Mac dans son
+        // ensemble (pas spécifique à la carte mère) : c'est le seul
+        // équivalent non privilégié disponible via `system_profiler`.
+        serial_number: parse_field(&text, "Serial Number (system)"),
         bios_vendor: Some("Apple".to_string()),
         bios_version: parse_field(&text, "Boot ROM Version"),
         bios_date: None,
         machine_uuid: parse_field(&text, "Hardware UUID"),
         secure_boot: None,
+        tpm_version: None,
     }
 }
