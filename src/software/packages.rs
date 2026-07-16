@@ -17,6 +17,9 @@ const PACKAGE_MANAGERS: &[(&str, &str, &[&str])] = &[
     ("cargo", "cargo", &["install", "--list"]),
     ("npm (global)", "npm", &["ls", "-g", "--depth=0"]),
     ("brew", "brew", &["list"]),
+    ("winget", "winget", &["list", "--accept-source-agreements"]),
+    ("choco", "choco", &["list", "--local-only"]),
+    ("scoop", "scoop", &["list"]),
 ];
 
 /// Infaillible par design : un gestionnaire absent ou une commande en échec

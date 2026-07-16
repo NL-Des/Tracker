@@ -205,6 +205,33 @@ fn write_software(md: &mut String, report: &SystemReport) {
     }
     writeln!(md).unwrap();
 
+    writeln!(md, "### Statut de sécurité").unwrap();
+    writeln!(md, "| Champ | Valeur |").unwrap();
+    writeln!(md, "|---|---|").unwrap();
+    writeln!(
+        md,
+        "| Pare-feu actif | {} |",
+        match software.security_status.firewall_enabled {
+            Some(true) => "Oui",
+            Some(false) => "Non",
+            None => "Inconnu",
+        }
+    )
+    .unwrap();
+    writeln!(
+        md,
+        "| Chiffrement du disque | {} |",
+        opt(&software.security_status.disk_encryption_status)
+    )
+    .unwrap();
+    writeln!(
+        md,
+        "| Antivirus | {} |",
+        opt(&software.security_status.antivirus_product)
+    )
+    .unwrap();
+    writeln!(md).unwrap();
+
     writeln!(md, "### Polices installées ({})", software.fonts.total_count).unwrap();
     if !software.fonts.families.is_empty() {
         writeln!(md, "{}", software.fonts.families.join(", ")).unwrap();

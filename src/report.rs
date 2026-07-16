@@ -20,6 +20,7 @@ impl SystemReport {
         sys.refresh_all();
         // Un deuxième rafraîchissement CPU est nécessaire car sysinfo a besoin
         // de deux mesures espacées dans le temps pour calculer un usage CPU fiable.
+        std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
         sys.refresh_cpu_all();
 
         let hardware = hardware::collect(&sys);

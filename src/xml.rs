@@ -238,6 +238,31 @@ fn write_software(xml: &mut String, report: &SystemReport) {
     }
     writeln!(xml, "</proxy_config>").unwrap();
 
+    writeln!(xml, "<security_status>").unwrap();
+    writeln!(
+        xml,
+        "<firewall_enabled>{}</firewall_enabled>",
+        software
+            .security_status
+            .firewall_enabled
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| "?".to_string())
+    )
+    .unwrap();
+    writeln!(
+        xml,
+        "<disk_encryption_status>{}</disk_encryption_status>",
+        opt(&software.security_status.disk_encryption_status)
+    )
+    .unwrap();
+    writeln!(
+        xml,
+        "<antivirus_product>{}</antivirus_product>",
+        opt(&software.security_status.antivirus_product)
+    )
+    .unwrap();
+    writeln!(xml, "</security_status>").unwrap();
+
     writeln!(xml, "<fonts total_count=\"{}\">", software.fonts.total_count).unwrap();
     if !software.fonts.families.is_empty() {
         writeln!(xml, "<families>{}</families>", esc(&software.fonts.families.join(", "))).unwrap();
