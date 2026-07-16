@@ -71,4 +71,8 @@ impl SystemReport {
     pub fn save_markdown(&self, path: &Path) -> std::io::Result<()> {
         std::fs::write(path, crate::markdown::generate(self))
     }
+
+    pub fn save_xml(&self, path: &Path) -> std::io::Result<()> {
+        std::fs::write(path, crate::xml::generate(self))
+    }
 }
