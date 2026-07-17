@@ -68,10 +68,10 @@ pub fn collect() -> Vec<InstalledAppInfo> {
             let Ok(contents) = fs::read_to_string(&path) else {
                 continue;
             };
-            if let Some(app) = parse_desktop_file(&contents) {
-                if seen_names.insert(app.name.clone()) {
-                    apps.push(app);
-                }
+            if let Some(app) = parse_desktop_file(&contents)
+                && seen_names.insert(app.name.clone())
+            {
+                apps.push(app);
             }
         }
     }

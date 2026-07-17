@@ -57,13 +57,13 @@ fn microphones() -> Vec<PeripheralInfo> {
         let trimmed = line.trim();
         if let Some(name) = trimmed.strip_prefix("Name: ") {
             current_is_monitor = name.ends_with(".monitor");
-        } else if let Some(description) = trimmed.strip_prefix("Description: ") {
-            if !current_is_monitor {
-                microphones.push(PeripheralInfo {
-                    name: description.to_string(),
-                    kind: "Microphone".to_string(),
-                });
-            }
+        } else if let Some(description) = trimmed.strip_prefix("Description: ")
+            && !current_is_monitor
+        {
+            microphones.push(PeripheralInfo {
+                name: description.to_string(),
+                kind: "Microphone".to_string(),
+            });
         }
     }
     microphones

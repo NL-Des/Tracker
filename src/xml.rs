@@ -227,14 +227,11 @@ fn write_software(xml: &mut String, report: &SystemReport) {
     );
 
     writeln!(xml, "<proxy_config>").unwrap();
-    match &software.proxy_config {
-        Some(proxy) => {
-            writeln!(xml, "<http_proxy>{}</http_proxy>", opt(&proxy.http_proxy)).unwrap();
-            writeln!(xml, "<https_proxy>{}</https_proxy>", opt(&proxy.https_proxy)).unwrap();
-            writeln!(xml, "<no_proxy>{}</no_proxy>", opt(&proxy.no_proxy)).unwrap();
-            writeln!(xml, "<source>{}</source>", esc(&proxy.source)).unwrap();
-        }
-        None => {}
+    if let Some(proxy) = &software.proxy_config {
+        writeln!(xml, "<http_proxy>{}</http_proxy>", opt(&proxy.http_proxy)).unwrap();
+        writeln!(xml, "<https_proxy>{}</https_proxy>", opt(&proxy.https_proxy)).unwrap();
+        writeln!(xml, "<no_proxy>{}</no_proxy>", opt(&proxy.no_proxy)).unwrap();
+        writeln!(xml, "<source>{}</source>", esc(&proxy.source)).unwrap();
     }
     writeln!(xml, "</proxy_config>").unwrap();
 

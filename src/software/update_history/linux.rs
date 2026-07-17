@@ -18,13 +18,13 @@ pub fn collect() -> Vec<UpdateHistoryEntryInfo> {
             current_date = Some(date.trim().to_string());
         } else if let Some(command) = line.strip_prefix("Commandline:") {
             current_command = Some(command.trim().to_string());
-        } else if line.starts_with("End-Date:") {
-            if let (Some(date), Some(command)) = (current_date.take(), current_command.take()) {
-                entries.push(UpdateHistoryEntryInfo {
-                    date,
-                    description: command,
-                });
-            }
+        } else if line.starts_with("End-Date:")
+            && let (Some(date), Some(command)) = (current_date.take(), current_command.take())
+        {
+            entries.push(UpdateHistoryEntryInfo {
+                date,
+                description: command,
+            });
         }
     }
 
