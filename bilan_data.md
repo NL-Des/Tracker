@@ -303,9 +303,6 @@ Tout ceci est sérialisé dans `tracker_report.json` à la racine du projet.
 - Bilan structuré (et non une simple liste de messages texte) : pour chaque champ attendu, statut collecté/échoué + raison de l'échec (permissions insuffisantes, capteur absent, plateforme non supportée, etc.), plutôt que la liste actuelle de chaînes libres dans `collection_warnings`.
 
 ### Données externes (nécessiteraient une connexion réseau, actuellement absente du projet)
-- Météo locale (via une API météo).
-- Cours de cryptomonnaies/bourse (si pertinent pour un futur usage financier).
-- Vérification de version la plus récente disponible pour les applications installées (comparaison avec un registre en ligne).
 - Géolocalisation approximative (IP → ville) pour enrichir le rapport.
 - Vulnérabilités connues (CVE) pour les logiciels installés détectés.
 
@@ -313,10 +310,8 @@ Tout ceci est sérialisé dans `tracker_report.json` à la racine du projet.
 - État du pare-feu (activé/désactivé, règles).
 - État de l'antivirus/EDR.
 - Chiffrement de disque (BitLocker/FileVault/LUKS actif ou non).
-- Comptes avec privilèges administrateur/sudo.
 
 ### Accessible sans privilèges root/admin (parmi les points ci-dessus)
-- **Marque/modèle CPU** : déjà présent (`brand`), aucune élévation requise.
 - **`ProcessorId` CPU (Windows)** : via WMI `Win32_Processor`, pas d'admin requis.
 - **Modèle/numéro de série des disques** : Linux via `/sys/block/*/device/{model,serial}` (lecture libre) ; Windows via WMI `Win32_DiskDrive` (pas d'admin requis) ; macOS via `diskutil info` (non privilégié).
 - **Numéro de série de la carte mère (Windows)** : WMI `Win32_BaseBoard.SerialNumber` sans admin. (Sur Linux, `/sys/class/dmi/id/board_serial` est souvent restreint root-only selon la distribution — à vérifier au cas par cas.)
@@ -325,10 +320,3 @@ Tout ceci est sérialisé dans `tracker_report.json` à la racine du projet.
 - **Numéro de série batterie** : déjà exposé par `starship-battery` (`serial_number()`), aucune élévation requise.
 - **Adresse MAC des interfaces réseau** : Linux via `/sys/class/net/*/address` (lecture libre) ; Windows/macOS sans privilège particulier — implémenté, cf. Liste 1.
 - **IP publique** (via une requête sortante) : aucune élévation requise, mais nécessiterait une connexion réseau sortante du projet (non implémenté).
-
-### Nécessite systématiquement root/admin
-- UUID machine (`/sys/class/dmi/id/product_uuid` sur Linux).
-- `dmidecode` sur Linux (BIOS bas niveau, RAM détaillée si sysfs insuffisant).
-- Historique boot/crash détaillé, logs noyau complets (`dmesg` complet).
-- Liste de tous les ports ouverts par tous les utilisateurs (selon OS).
-- État antivirus/EDR, chiffrement de disque, règles de pare-feu détaillées.
