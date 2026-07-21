@@ -1,5 +1,7 @@
 import { getConsent } from "./api.js";
 import { t, getLocale, setLocale } from "./i18n.js";
+import { setConsentState } from "./state.js";
+import { renderPresets } from "./presets.js";
 
 export function renderHome(root) {
   root.innerHTML = `
@@ -35,8 +37,8 @@ export function renderHome(root) {
 
   button.addEventListener("click", async () => {
     const consent = await getConsent();
-    console.log("Consentement courant :", consent);
-    // Point d'ancrage pour le routage vers le panneau à onglets (étapes 5-8).
-    // Pas de logique d'authentification à ce stade.
+    setConsentState(consent);
+    // Pas de logique d'authentification à ce stade : simple point d'ancrage.
+    renderPresets(root);
   });
 }

@@ -8,6 +8,8 @@ fn main() {
             commands::set_locale,
             commands::get_consent,
             commands::save_consent,
+            commands::get_preset,
+            commands::list_hardware_fields,
             commands::collect_and_export,
         ])
         .run(tauri::generate_context!())

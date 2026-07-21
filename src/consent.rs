@@ -160,7 +160,10 @@ impl Default for ConsentConfig {
 }
 
 /// Niveaux globaux prédéfinis, voir bilan_client.md §5 étape 5.
-/// La composition exacte de `Minimum`/`Medium` reste à valider avec l'utilisateur.
+/// Composition classée par sensibilité vie privée (validée avec l'utilisateur) :
+/// - Minimum : champs purement techniques, non identifiants.
+/// - Medium : Minimum + environnement matériel/logiciel sans données personnelles.
+/// - Maximum : tout, y compris les champs à forte identification (users, ssh_keys, ...).
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ConsentPreset {
     None,
@@ -173,15 +176,91 @@ impl ConsentPreset {
     pub fn to_config(self) -> ConsentConfig {
         let (hardware, software, browsers) = match self {
             ConsentPreset::None => (HardwareConsent::all(false), SoftwareConsent::all(false), false),
-            ConsentPreset::Minimum => {
-                let mut hw = HardwareConsent::all(false);
-                hw.cpu = true;
-                hw.memory = true;
-                let mut sw = SoftwareConsent::all(false);
-                sw.os = true;
-                (hw, sw, false)
-            }
-            ConsentPreset::Medium => (HardwareConsent::all(true), SoftwareConsent::all(false), false),
+            ConsentPreset::Minimum => (
+                HardwareConsent {
+                    cpu: true,
+                    memory: true,
+                    disks: true,
+                    virtual_disks: true,
+                    network: false,
+                    wifi: false,
+                    components: true,
+                    batteries: true,
+                    motherboard: true,
+                    gpus: true,
+                    pci_devices: true,
+                    monitors: true,
+                    optical_drives: true,
+                    peripherals: false,
+                    mice: false,
+                    gamepads: false,
+                    touchpads: false,
+                    cameras: false,
+                    usb_devices: false,
+                    bluetooth_devices: false,
+                    printers: false,
+                    fans: true,
+                    storage_layout: true,
+                    power_profile: true,
+                },
+                SoftwareConsent {
+                    os: true,
+                    processes: false,
+                    users: false,
+                    env_vars: false,
+                    installed_apps: false,
+                    dev_runtimes: false,
+                    services: false,
+                    failed_services: false,
+                    scheduled_tasks: false,
+                    autostart_entries: false,
+                    package_managers: false,
+                    network_connections: false,
+                    desktop_environment: false,
+                    update_history: false,
+                    kernel_modules: false,
+                    docker_images: false,
+                    docker_volumes: false,
+                    virtual_machines: false,
+                    podman_images: false,
+                    podman_volumes: false,
+                    fonts: false,
+                    proxy_config: false,
+                    ssh_keys: false,
+                    security_status: false,
+                },
+                false,
+            ),
+            ConsentPreset::Medium => (
+                HardwareConsent::all(true),
+                SoftwareConsent {
+                    os: true,
+                    processes: false,
+                    users: false,
+                    env_vars: false,
+                    installed_apps: true,
+                    dev_runtimes: true,
+                    services: true,
+                    failed_services: true,
+                    scheduled_tasks: true,
+                    autostart_entries: true,
+                    package_managers: true,
+                    network_connections: false,
+                    desktop_environment: true,
+                    update_history: true,
+                    kernel_modules: true,
+                    docker_images: true,
+                    docker_volumes: true,
+                    virtual_machines: true,
+                    podman_images: true,
+                    podman_volumes: true,
+                    fonts: true,
+                    proxy_config: true,
+                    ssh_keys: false,
+                    security_status: true,
+                },
+                false,
+            ),
             ConsentPreset::Maximum => (HardwareConsent::all(true), SoftwareConsent::all(true), true),
         };
         ConsentConfig {
@@ -263,6 +342,33 @@ mod tests {
     fn none_preset_disables_everything() {
         let config = ConsentPreset::None.to_config();
         assert_eq!(config, ConsentConfig::default());
+    }
+
+    #[test]
+    fn minimum_preset_enables_only_technical_fields() {
+        let config = ConsentPreset::Minimum.to_config();
+        assert!(config.hardware.cpu);
+        assert!(config.hardware.memory);
+        assert!(!config.hardware.wifi);
+        assert!(!config.hardware.usb_devices);
+        assert!(config.software.os);
+        assert!(!config.software.processes);
+        assert!(!config.software.installed_apps);
+        assert!(!config.browsers);
+    }
+
+    #[test]
+    fn medium_preset_enables_all_hardware_and_non_identifying_software() {
+        let config = ConsentPreset::Medium.to_config();
+        assert_eq!(config.hardware, HardwareConsent::all(true));
+        assert!(config.software.installed_apps);
+        assert!(config.software.docker_images);
+        assert!(!config.software.processes);
+        assert!(!config.software.users);
+        assert!(!config.software.env_vars);
+        assert!(!config.software.network_connections);
+        assert!(!config.software.ssh_keys);
+        assert!(!config.browsers);
     }
 
     #[test]

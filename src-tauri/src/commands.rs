@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use tracker::consent::ConsentConfig;
+use tracker::consent::{ConsentConfig, ConsentPreset, HardwareConsent};
 use tracker::SystemReport;
 
 #[tauri::command]
@@ -15,8 +15,35 @@ pub fn get_consent() -> Result<ConsentConfig, String> {
 }
 
 #[tauri::command]
-pub fn save_consent(config: ConsentConfig) -> Result<(), String> {
+pub fn save_consent(mut config: ConsentConfig) -> Result<(), String> {
+    config.accepted_at_unix = Some(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| e.to_string())?
+            .as_secs(),
+    );
     tracker::consent::save(&config).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_hardware_fields() -> Result<Vec<String>, String> {
+    let value = serde_json::to_value(HardwareConsent::default()).map_err(|e| e.to_string())?;
+    let object = value
+        .as_object()
+        .ok_or("HardwareConsent ne sérialise pas en objet")?;
+    Ok(object.keys().cloned().collect())
+}
+
+#[tauri::command]
+pub fn get_preset(name: String) -> Result<ConsentConfig, String> {
+    let preset = match name.as_str() {
+        "none" => ConsentPreset::None,
+        "minimum" => ConsentPreset::Minimum,
+        "medium" => ConsentPreset::Medium,
+        "maximum" => ConsentPreset::Maximum,
+        other => return Err(format!("preset inconnu : {other}")),
+    };
+    Ok(preset.to_config())
 }
 
 #[tauri::command]
@@ -57,4 +84,21 @@ pub async fn collect_and_export(
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn list_hardware_fields_matches_hardware_fields_constant() {
+        let mut got = list_hardware_fields().unwrap();
+        got.sort();
+        let mut expected: Vec<String> = tracker::hardware::HARDWARE_FIELDS
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        expected.sort();
+        assert_eq!(got, expected);
+    }
 }
