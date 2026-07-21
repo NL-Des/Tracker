@@ -1,0 +1,6 @@
+_version: 1
+warnings:
+  machine_uuid_unavailable: "UUID machine inaccessible (souvent nécessite des privilèges root/admin)"
+  no_monitor_detected: "Aucun écran détecté (environnement headless/SSH ?)"
+  no_gpu_detected: "Aucun GPU détecté"
+  no_browser_detected: "Aucun navigateur détecté"

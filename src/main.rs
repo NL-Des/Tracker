@@ -2,6 +2,15 @@ use std::path::Path;
 use tracker::SystemReport;
 
 fn main() {
+    // Comportement historique du CLI : messages en français par défaut,
+    // sauf si l'utilisateur exporte LANG=en... (aligné sur set_locale côté GUI).
+    let locale = std::env::var("LANG")
+        .ok()
+        .and_then(|lang| lang.get(0..2).map(str::to_string))
+        .filter(|code| code == "en")
+        .unwrap_or_else(|| "fr".to_string());
+    rust_i18n::set_locale(&locale);
+
     let report = SystemReport::collect();
 
     let json_path = Path::new("tracker_report.json");

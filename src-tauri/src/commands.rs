@@ -3,6 +3,11 @@ use tracker::consent::ConsentConfig;
 use tracker::SystemReport;
 
 #[tauri::command]
+pub fn set_locale(locale: String) {
+    rust_i18n::set_locale(&locale);
+}
+
+#[tauri::command]
 pub fn get_consent() -> Result<ConsentConfig, String> {
     tracker::consent::load()
         .map_err(|e| e.to_string())

@@ -29,20 +29,16 @@ impl SystemReport {
 
         let mut collection_warnings = Vec::new();
         if hardware.motherboard.machine_uuid.is_none() {
-            collection_warnings.push(
-                "UUID machine inaccessible (souvent nécessite des privilèges root/admin)"
-                    .to_string(),
-            );
+            collection_warnings.push(rust_i18n::t!("warnings.machine_uuid_unavailable").to_string());
         }
         if hardware.monitors.is_empty() {
-            collection_warnings
-                .push("Aucun écran détecté (environnement headless/SSH ?)".to_string());
+            collection_warnings.push(rust_i18n::t!("warnings.no_monitor_detected").to_string());
         }
         if hardware.gpus.is_empty() {
-            collection_warnings.push("Aucun GPU détecté".to_string());
+            collection_warnings.push(rust_i18n::t!("warnings.no_gpu_detected").to_string());
         }
         if browsers.is_empty() {
-            collection_warnings.push("Aucun navigateur détecté".to_string());
+            collection_warnings.push(rust_i18n::t!("warnings.no_browser_detected").to_string());
         }
 
         SystemReport {
@@ -75,5 +71,37 @@ impl SystemReport {
 
     pub fn save_xml(&self, path: &Path) -> std::io::Result<()> {
         std::fs::write(path, crate::xml::generate(self))
+    }
+}
+
+#[cfg(test)]
+mod i18n_tests {
+    // `rust_i18n::set_locale` mute un état global au processus : un mutex évite
+    // que ces tests ne se marchent dessus s'ils tournent sur des threads distincts.
+    static LOCALE_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[test]
+    fn warning_translates_to_french() {
+        let _guard = LOCALE_TEST_LOCK.lock().unwrap();
+        rust_i18n::set_locale("fr");
+        assert_eq!(
+            rust_i18n::t!("warnings.no_gpu_detected"),
+            "Aucun GPU détecté"
+        );
+    }
+
+    #[test]
+    fn warning_translates_to_english() {
+        let _guard = LOCALE_TEST_LOCK.lock().unwrap();
+        rust_i18n::set_locale("en");
+        assert_eq!(rust_i18n::t!("warnings.no_gpu_detected"), "No GPU detected");
+    }
+
+    #[test]
+    fn missing_key_falls_back_to_default_locale() {
+        let _guard = LOCALE_TEST_LOCK.lock().unwrap();
+        rust_i18n::set_locale("de");
+        // Aucune locale "de" définie : rust-i18n retombe sur le fallback ("en").
+        assert_eq!(rust_i18n::t!("warnings.no_gpu_detected"), "No GPU detected");
     }
 }

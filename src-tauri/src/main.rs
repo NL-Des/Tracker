@@ -5,6 +5,7 @@ mod commands;
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
+            commands::set_locale,
             commands::get_consent,
             commands::save_consent,
             commands::collect_and_export,
