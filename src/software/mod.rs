@@ -23,6 +23,35 @@ pub mod virtual_machines;
 use serde::Serialize;
 use sysinfo::System;
 
+// ⚠️ Garder synchronisé avec `consent::SoftwareConsent` (src/consent.rs) et ce
+// tableau — voir `tests/consent_parity.rs`, qui échoue si l'un des trois diverge.
+pub const SOFTWARE_FIELDS: &[&str] = &[
+    "os",
+    "processes",
+    "users",
+    "env_vars",
+    "installed_apps",
+    "dev_runtimes",
+    "services",
+    "failed_services",
+    "scheduled_tasks",
+    "autostart_entries",
+    "package_managers",
+    "network_connections",
+    "desktop_environment",
+    "update_history",
+    "kernel_modules",
+    "docker_images",
+    "docker_volumes",
+    "virtual_machines",
+    "podman_images",
+    "podman_volumes",
+    "fonts",
+    "proxy_config",
+    "ssh_keys",
+    "security_status",
+];
+
 #[derive(Serialize)]
 pub struct SoftwareInfo {
     pub os: os_info::OsInfo,

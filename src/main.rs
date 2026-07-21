@@ -1,14 +1,5 @@
-mod browsers;
-mod command;
-mod hardware;
-mod markdown;
-mod os_dispatch;
-mod report;
-mod software;
-mod xml;
-
-use report::SystemReport;
 use std::path::Path;
+use tracker::SystemReport;
 
 fn main() {
     let report = SystemReport::collect();

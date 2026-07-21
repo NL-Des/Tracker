@@ -23,6 +23,35 @@ pub mod wifi;
 use serde::Serialize;
 use sysinfo::System;
 
+// ⚠️ Garder synchronisé avec `consent::HardwareConsent` (src/consent.rs) et ce
+// tableau — voir `tests/consent_parity.rs`, qui échoue si l'un des trois diverge.
+pub const HARDWARE_FIELDS: &[&str] = &[
+    "cpu",
+    "memory",
+    "disks",
+    "virtual_disks",
+    "network",
+    "wifi",
+    "components",
+    "batteries",
+    "motherboard",
+    "gpus",
+    "pci_devices",
+    "monitors",
+    "optical_drives",
+    "peripherals",
+    "mice",
+    "gamepads",
+    "touchpads",
+    "cameras",
+    "usb_devices",
+    "bluetooth_devices",
+    "printers",
+    "fans",
+    "storage_layout",
+    "power_profile",
+];
+
 #[derive(Serialize)]
 pub struct HardwareInfo {
     pub cpu: cpu::CpuInfo,
