@@ -1,3 +1,4 @@
+use crate::consent::{ConsentConfig, ConsentPreset};
 use crate::{browsers, hardware, software};
 use serde::Serialize;
 use std::path::Path;
@@ -58,6 +59,22 @@ impl SystemReport {
         serde_json::to_string_pretty(self)
     }
 
+    /// Sérialise le rapport en remplaçant par `"np"` chaque champ Hardware/Software
+    /// désactivé dans `consent` (cf. plan_client.md étape 9). Introspecte
+    /// dynamiquement `consent.hardware`/`consent.software` plutôt que de coder
+    /// les ~47 clés en dur, pour rester aligné avec `HARDWARE_FIELDS`/`SOFTWARE_FIELDS`.
+    pub fn to_json_pretty_filtered(&self, consent: &ConsentConfig) -> serde_json::Result<String> {
+        let mut value = serde_json::to_value(self)?;
+        filter_module(&mut value, "hardware", &consent.hardware)?;
+        filter_module(&mut value, "software", &consent.software)?;
+        if !consent.browsers {
+            if let Some(browsers) = value.get_mut("browsers") {
+                *browsers = serde_json::Value::String("np".to_string());
+            }
+        }
+        serde_json::to_string_pretty(&value)
+    }
+
     pub fn save_json(&self, path: &Path) -> std::io::Result<()> {
         let json = self
             .to_json_pretty()
@@ -65,13 +82,51 @@ impl SystemReport {
         std::fs::write(path, json)
     }
 
-    pub fn save_markdown(&self, path: &Path) -> std::io::Result<()> {
-        std::fs::write(path, crate::markdown::generate(self))
+    pub fn save_json_filtered(&self, path: &Path, consent: &ConsentConfig) -> std::io::Result<()> {
+        let json = self
+            .to_json_pretty_filtered(consent)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        std::fs::write(path, json)
     }
 
-    pub fn save_xml(&self, path: &Path) -> std::io::Result<()> {
-        std::fs::write(path, crate::xml::generate(self))
+    /// CLI (main.rs) : comportement historique inchangé, aucun filtrage.
+    pub fn save_markdown(&self, path: &Path) -> std::io::Result<()> {
+        std::fs::write(path, crate::markdown::generate(self, &ConsentPreset::Maximum.to_config()))
     }
+
+    pub fn save_markdown_filtered(&self, path: &Path, consent: &ConsentConfig) -> std::io::Result<()> {
+        std::fs::write(path, crate::markdown::generate(self, consent))
+    }
+
+    /// CLI (main.rs) : comportement historique inchangé, aucun filtrage.
+    pub fn save_xml(&self, path: &Path) -> std::io::Result<()> {
+        std::fs::write(path, crate::xml::generate(self, &ConsentPreset::Maximum.to_config()))
+    }
+
+    pub fn save_xml_filtered(&self, path: &Path, consent: &ConsentConfig) -> std::io::Result<()> {
+        std::fs::write(path, crate::xml::generate(self, consent))
+    }
+}
+
+/// Remplace par `"np"` chaque clé de `value[module]` dont le booléen correspondant
+/// dans `consent_module` (`HardwareConsent`/`SoftwareConsent`) est `false`.
+fn filter_module<T: Serialize>(
+    value: &mut serde_json::Value,
+    module: &str,
+    consent_module: &T,
+) -> serde_json::Result<()> {
+    let consent_value = serde_json::to_value(consent_module)?;
+    let consent_object = consent_value
+        .as_object()
+        .expect("HardwareConsent/SoftwareConsent doivent toujours sérialiser en objet JSON");
+    if let Some(module_object) = value.get_mut(module).and_then(|v| v.as_object_mut()) {
+        for (key, enabled) in consent_object {
+            if enabled.as_bool() == Some(false) {
+                module_object.insert(key.clone(), serde_json::Value::String("np".to_string()));
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

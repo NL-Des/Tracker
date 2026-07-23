@@ -1,7 +1,8 @@
+use crate::consent::ConsentConfig;
 use crate::report::SystemReport;
 use std::fmt::Write as _;
 
-pub fn generate(report: &SystemReport) -> String {
+pub fn generate(report: &SystemReport, consent: &ConsentConfig) -> String {
     let mut md = String::new();
 
     writeln!(md, "# Rapport système").unwrap();
@@ -10,16 +11,36 @@ pub fn generate(report: &SystemReport) -> String {
     writeln!(md, "- Version de l'outil : {}", report.tool_version).unwrap();
     writeln!(md).unwrap();
 
-    write_software(&mut md, report);
-    write_hardware(&mut md, report);
-    write_browsers(&mut md, report);
+    write_software(&mut md, report, consent);
+    write_hardware(&mut md, report, consent);
+    write_browsers(&mut md, report, consent);
     write_warnings(&mut md, report);
-    write_processes(&mut md, report);
+    write_processes(&mut md, report, consent);
 
     md
 }
 
-fn simple_list_section<T>(md: &mut String, title: &str, header: &str, items: &[T], row: impl Fn(&T) -> String) {
+/// Placeholder écrit à la place d'un bloc complet quand le champ correspondant
+/// est désactivé dans le `ConsentConfig` (cf. plan_client.md étape 9).
+fn np_section(md: &mut String, title: &str) {
+    writeln!(md, "### {title}").unwrap();
+    writeln!(md).unwrap();
+    writeln!(md, "np").unwrap();
+    writeln!(md).unwrap();
+}
+
+fn simple_list_section<T>(
+    md: &mut String,
+    enabled: bool,
+    title: &str,
+    header: &str,
+    items: &[T],
+    row: impl Fn(&T) -> String,
+) {
+    if !enabled {
+        np_section(md, title);
+        return;
+    }
     writeln!(md, "### {title} ({})", items.len()).unwrap();
     writeln!(md).unwrap();
     if !items.is_empty() {
@@ -31,46 +52,57 @@ fn simple_list_section<T>(md: &mut String, title: &str, header: &str, items: &[T
     writeln!(md).unwrap();
 }
 
-fn write_software(md: &mut String, report: &SystemReport) {
+fn write_software(md: &mut String, report: &SystemReport, consent: &ConsentConfig) {
     let software = &report.software;
+    let sc = &consent.software;
     let os = &software.os;
 
     writeln!(md, "## Logiciel").unwrap();
     writeln!(md).unwrap();
 
-    writeln!(md, "### Système d'exploitation").unwrap();
-    writeln!(md, "| Champ | Valeur |").unwrap();
-    writeln!(md, "|---|---|").unwrap();
-    writeln!(md, "| Nom | {} |", opt(&os.name)).unwrap();
-    writeln!(md, "| Version du noyau | {} |", opt(&os.kernel_version)).unwrap();
-    writeln!(md, "| Version OS | {} |", opt(&os.os_version)).unwrap();
-    writeln!(md, "| Nom d'hôte | {} |", opt(&os.host_name)).unwrap();
-    writeln!(md, "| Uptime (secondes) | {} |", os.uptime_seconds).unwrap();
-    writeln!(md).unwrap();
+    if sc.os {
+        writeln!(md, "### Système d'exploitation").unwrap();
+        writeln!(md, "| Champ | Valeur |").unwrap();
+        writeln!(md, "|---|---|").unwrap();
+        writeln!(md, "| Nom | {} |", opt(&os.name)).unwrap();
+        writeln!(md, "| Version du noyau | {} |", opt(&os.kernel_version)).unwrap();
+        writeln!(md, "| Version OS | {} |", opt(&os.os_version)).unwrap();
+        writeln!(md, "| Nom d'hôte | {} |", opt(&os.host_name)).unwrap();
+        writeln!(md, "| Uptime (secondes) | {} |", os.uptime_seconds).unwrap();
+        writeln!(md).unwrap();
+    } else {
+        np_section(md, "Système d'exploitation");
+    }
 
     simple_list_section(
         md,
+        sc.users,
         "Comptes utilisateurs",
         "| Nom | UID | GID | Groupes |\n|---|---|---|---|",
         &software.users,
         |u| format!("| {} | {} | {} | {} |", u.name, u.uid, u.gid, u.groups.join(", ")),
     );
 
-    writeln!(
-        md,
-        "### Variables d'environnement ({}, clés sensibles rédigées)",
-        software.env_vars.len()
-    )
-    .unwrap();
-    writeln!(md, "| Clé | Valeur |").unwrap();
-    writeln!(md, "|---|---|").unwrap();
-    for env_var in &software.env_vars {
-        writeln!(md, "| {} | {} |", env_var.key, env_var.value).unwrap();
+    if sc.env_vars {
+        writeln!(
+            md,
+            "### Variables d'environnement ({}, clés sensibles rédigées)",
+            software.env_vars.len()
+        )
+        .unwrap();
+        writeln!(md, "| Clé | Valeur |").unwrap();
+        writeln!(md, "|---|---|").unwrap();
+        for env_var in &software.env_vars {
+            writeln!(md, "| {} | {} |", env_var.key, env_var.value).unwrap();
+        }
+        writeln!(md).unwrap();
+    } else {
+        np_section(md, "Variables d'environnement");
     }
-    writeln!(md).unwrap();
 
     simple_list_section(
         md,
+        sc.installed_apps,
         "Applications installées",
         "| Nom | Version | Éditeur | Source |\n|---|---|---|---|",
         &software.installed_apps,
@@ -87,6 +119,7 @@ fn write_software(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        sc.dev_runtimes,
         "Runtimes de développement",
         "| Nom | Version |\n|---|---|",
         &software.dev_runtimes,
@@ -95,6 +128,7 @@ fn write_software(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        sc.services,
         "Services / démons",
         "| Nom | État |\n|---|---|",
         &software.services,
@@ -103,6 +137,7 @@ fn write_software(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        sc.failed_services,
         "Services / démons en échec",
         "| Nom | État |\n|---|---|",
         &software.failed_services,
@@ -111,6 +146,7 @@ fn write_software(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        sc.scheduled_tasks,
         "Tâches planifiées (utilisateur courant)",
         "| Nom / commande | Planification |\n|---|---|",
         &software.scheduled_tasks,
@@ -119,6 +155,7 @@ fn write_software(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        sc.autostart_entries,
         "Démarrage automatique",
         "| Nom | Commande |\n|---|---|",
         &software.autostart_entries,
@@ -127,6 +164,7 @@ fn write_software(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        sc.package_managers,
         "Gestionnaires de paquets",
         "| Gestionnaire | Nombre de paquets |\n|---|---|",
         &software.package_managers,
@@ -135,6 +173,7 @@ fn write_software(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        sc.network_connections,
         "Connexions réseau (utilisateur courant)",
         "| Protocole | Adresse locale | État |\n|---|---|---|",
         &software.network_connections,
@@ -143,6 +182,7 @@ fn write_software(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        sc.docker_images,
         "Images Docker",
         "| Dépôt | Tag | ID image | Taille | Créée |\n|---|---|---|---|---|",
         &software.docker_images,
@@ -151,6 +191,7 @@ fn write_software(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        sc.docker_volumes,
         "Volumes Docker",
         "| Nom | Driver | Point de montage |\n|---|---|---|",
         &software.docker_volumes,
@@ -159,6 +200,7 @@ fn write_software(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        sc.virtual_machines,
         "Machines virtuelles (VirtualBox / QEMU-KVM)",
         "| Nom | Hyperviseur | État | Identifiant |\n|---|---|---|---|",
         &software.virtual_machines,
@@ -167,6 +209,7 @@ fn write_software(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        sc.podman_images,
         "Images Podman",
         "| Dépôt | Tag | ID image | Taille | Créée |\n|---|---|---|---|---|",
         &software.podman_images,
@@ -175,6 +218,7 @@ fn write_software(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        sc.podman_volumes,
         "Volumes Podman",
         "| Nom | Driver | Point de montage |\n|---|---|---|",
         &software.podman_volumes,
@@ -183,72 +227,90 @@ fn write_software(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        sc.ssh_keys,
         "Clés SSH (métadonnées uniquement, clés publiques)",
         "| Fichier | Type | Empreinte |\n|---|---|---|",
         &software.ssh_keys,
         |k| format!("| {} | {} | {} |", k.file_name, opt(&k.key_type), opt(&k.fingerprint)),
     );
 
-    writeln!(md, "### Configuration proxy système").unwrap();
-    match &software.proxy_config {
-        Some(proxy) => {
-            writeln!(md, "| Champ | Valeur |").unwrap();
-            writeln!(md, "|---|---|").unwrap();
-            writeln!(md, "| HTTP | {} |", opt(&proxy.http_proxy)).unwrap();
-            writeln!(md, "| HTTPS | {} |", opt(&proxy.https_proxy)).unwrap();
-            writeln!(md, "| Exceptions (no_proxy) | {} |", opt(&proxy.no_proxy)).unwrap();
-            writeln!(md, "| Source | {} |", proxy.source).unwrap();
+    if sc.proxy_config {
+        writeln!(md, "### Configuration proxy système").unwrap();
+        match &software.proxy_config {
+            Some(proxy) => {
+                writeln!(md, "| Champ | Valeur |").unwrap();
+                writeln!(md, "|---|---|").unwrap();
+                writeln!(md, "| HTTP | {} |", opt(&proxy.http_proxy)).unwrap();
+                writeln!(md, "| HTTPS | {} |", opt(&proxy.https_proxy)).unwrap();
+                writeln!(md, "| Exceptions (no_proxy) | {} |", opt(&proxy.no_proxy)).unwrap();
+                writeln!(md, "| Source | {} |", proxy.source).unwrap();
+            }
+            None => {
+                writeln!(md, "Aucun proxy configuré détecté.").unwrap();
+            }
         }
-        None => {
-            writeln!(md, "Aucun proxy configuré détecté.").unwrap();
-        }
+        writeln!(md).unwrap();
+    } else {
+        np_section(md, "Configuration proxy système");
     }
-    writeln!(md).unwrap();
 
-    writeln!(md, "### Statut de sécurité").unwrap();
-    writeln!(md, "| Champ | Valeur |").unwrap();
-    writeln!(md, "|---|---|").unwrap();
-    writeln!(
-        md,
-        "| Pare-feu actif | {} |",
-        match software.security_status.firewall_enabled {
-            Some(true) => "Oui",
-            Some(false) => "Non",
-            None => "Inconnu",
-        }
-    )
-    .unwrap();
-    writeln!(
-        md,
-        "| Chiffrement du disque | {} |",
-        opt(&software.security_status.disk_encryption_status)
-    )
-    .unwrap();
-    writeln!(
-        md,
-        "| Antivirus | {} |",
-        opt(&software.security_status.antivirus_product)
-    )
-    .unwrap();
-    writeln!(md).unwrap();
-
-    writeln!(md, "### Polices installées ({})", software.fonts.total_count).unwrap();
-    if !software.fonts.families.is_empty() {
-        writeln!(md, "{}", software.fonts.families.join(", ")).unwrap();
+    if sc.security_status {
+        writeln!(md, "### Statut de sécurité").unwrap();
+        writeln!(md, "| Champ | Valeur |").unwrap();
+        writeln!(md, "|---|---|").unwrap();
+        writeln!(
+            md,
+            "| Pare-feu actif | {} |",
+            match software.security_status.firewall_enabled {
+                Some(true) => "Oui",
+                Some(false) => "Non",
+                None => "Inconnu",
+            }
+        )
+        .unwrap();
+        writeln!(
+            md,
+            "| Chiffrement du disque | {} |",
+            opt(&software.security_status.disk_encryption_status)
+        )
+        .unwrap();
+        writeln!(
+            md,
+            "| Antivirus | {} |",
+            opt(&software.security_status.antivirus_product)
+        )
+        .unwrap();
+        writeln!(md).unwrap();
+    } else {
+        np_section(md, "Statut de sécurité");
     }
-    writeln!(md).unwrap();
 
-    writeln!(md, "### Environnement de bureau").unwrap();
-    writeln!(md, "| Champ | Valeur |").unwrap();
-    writeln!(md, "|---|---|").unwrap();
-    writeln!(md, "| Environnement | {} |", opt(&software.desktop_environment.desktop)).unwrap();
-    writeln!(md, "| Type de session | {} |", opt(&software.desktop_environment.session_type)).unwrap();
-    writeln!(md, "| Locale | {} |", opt(&software.desktop_environment.locale)).unwrap();
-    writeln!(md, "| Fuseau horaire | {} |", opt(&software.desktop_environment.timezone)).unwrap();
-    writeln!(md).unwrap();
+    if sc.fonts {
+        writeln!(md, "### Polices installées ({})", software.fonts.total_count).unwrap();
+        if !software.fonts.families.is_empty() {
+            writeln!(md, "{}", software.fonts.families.join(", ")).unwrap();
+        }
+        writeln!(md).unwrap();
+    } else {
+        np_section(md, "Polices installées");
+    }
+
+    if sc.desktop_environment {
+        writeln!(md, "### Environnement de bureau").unwrap();
+        writeln!(md, "| Champ | Valeur |").unwrap();
+        writeln!(md, "|---|---|").unwrap();
+        writeln!(md, "| Environnement | {} |", opt(&software.desktop_environment.desktop)).unwrap();
+        writeln!(md, "| Type de session | {} |", opt(&software.desktop_environment.session_type)).unwrap();
+        writeln!(md, "| Locale | {} |", opt(&software.desktop_environment.locale)).unwrap();
+        writeln!(md, "| Fuseau horaire | {} |", opt(&software.desktop_environment.timezone)).unwrap();
+        writeln!(md).unwrap();
+    } else {
+        np_section(md, "Environnement de bureau");
+    }
 
     simple_list_section(
         md,
+        sc.update_history,
         "Historique des mises à jour",
         "| Date | Description |\n|---|---|",
         &software.update_history,
@@ -257,6 +319,7 @@ fn write_software(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        sc.kernel_modules,
         "Modules noyau chargés",
         "| Nom | Taille (octets) |\n|---|---|",
         &software.kernel_modules,
@@ -264,55 +327,66 @@ fn write_software(md: &mut String, report: &SystemReport) {
     );
 }
 
-fn write_hardware(md: &mut String, report: &SystemReport) {
+fn write_hardware(md: &mut String, report: &SystemReport, consent: &ConsentConfig) {
     let hardware = &report.hardware;
+    let hc = &consent.hardware;
 
     writeln!(md, "## Matériel").unwrap();
     writeln!(md).unwrap();
 
-    writeln!(md, "### Mémoire").unwrap();
-    writeln!(md, "| Champ | Valeur |").unwrap();
-    writeln!(md, "|---|---|").unwrap();
-    writeln!(md, "| RAM totale | {} Mo |", hardware.memory.total_mb).unwrap();
-    writeln!(md, "| RAM utilisée | {} Mo |", hardware.memory.used_mb).unwrap();
-    writeln!(md, "| Swap total | {} Mo |", hardware.memory.total_swap_mb).unwrap();
-    writeln!(md, "| Swap utilisé | {} Mo |", hardware.memory.used_swap_mb).unwrap();
-    writeln!(md).unwrap();
+    if hc.memory {
+        writeln!(md, "### Mémoire").unwrap();
+        writeln!(md, "| Champ | Valeur |").unwrap();
+        writeln!(md, "|---|---|").unwrap();
+        writeln!(md, "| RAM totale | {} Mo |", hardware.memory.total_mb).unwrap();
+        writeln!(md, "| RAM utilisée | {} Mo |", hardware.memory.used_mb).unwrap();
+        writeln!(md, "| Swap total | {} Mo |", hardware.memory.total_swap_mb).unwrap();
+        writeln!(md, "| Swap utilisé | {} Mo |", hardware.memory.used_swap_mb).unwrap();
+        writeln!(md).unwrap();
+    } else {
+        np_section(md, "Mémoire");
+    }
 
-    writeln!(md, "### CPU").unwrap();
-    writeln!(md, "- Architecture : {}", hardware.cpu.architecture).unwrap();
-    writeln!(md, "- Nombre de cœurs : {}", hardware.cpu.core_count).unwrap();
-    writeln!(
-        md,
-        "- Utilisation globale : {:.1}%",
-        hardware.cpu.global_usage_percent
-    )
-    .unwrap();
-    writeln!(md).unwrap();
-    writeln!(md, "| Cœur | Usage % | Fréquence (MHz) | Marque |").unwrap();
-    writeln!(md, "|---|---|---|---|").unwrap();
-    for core in &hardware.cpu.cores {
+    if hc.cpu {
+        writeln!(md, "### CPU").unwrap();
+        writeln!(md, "- Architecture : {}", hardware.cpu.architecture).unwrap();
+        writeln!(md, "- Nombre de cœurs : {}", hardware.cpu.core_count).unwrap();
         writeln!(
             md,
-            "| {} | {:.1} | {} | {} |",
-            core.index, core.usage_percent, core.frequency_mhz, core.brand
+            "- Utilisation globale : {:.1}%",
+            hardware.cpu.global_usage_percent
         )
         .unwrap();
+        writeln!(md).unwrap();
+        writeln!(md, "| Cœur | Usage % | Fréquence (MHz) | Marque |").unwrap();
+        writeln!(md, "|---|---|---|---|").unwrap();
+        for core in &hardware.cpu.cores {
+            writeln!(
+                md,
+                "| {} | {:.1} | {} | {} |",
+                core.index, core.usage_percent, core.frequency_mhz, core.brand
+            )
+            .unwrap();
+        }
+        writeln!(md).unwrap();
+        writeln!(md, "- Gouverneur de fréquence : {}", opt(&hardware.cpu.scaling_governor)).unwrap();
+        writeln!(md).unwrap();
+
+        simple_list_section(
+            md,
+            true,
+            "Vulnérabilités CPU connues (mitigations)",
+            "| Nom | Statut |\n|---|---|",
+            &hardware.cpu.vulnerabilities,
+            |v| format!("| {} | {} |", v.name, v.status),
+        );
+    } else {
+        np_section(md, "CPU");
     }
-    writeln!(md).unwrap();
-    writeln!(md, "- Gouverneur de fréquence : {}", opt(&hardware.cpu.scaling_governor)).unwrap();
-    writeln!(md).unwrap();
 
     simple_list_section(
         md,
-        "Vulnérabilités CPU connues (mitigations)",
-        "| Nom | Statut |\n|---|---|",
-        &hardware.cpu.vulnerabilities,
-        |v| format!("| {} | {} |", v.name, v.status),
-    );
-
-    simple_list_section(
-        md,
+        hc.disks,
         "Stockage",
         "| Nom | Type | Système de fichiers | Point de montage | Amovible | Utilisé / Total (Go) | Santé SMART |\n|---|---|---|---|---|---|---|",
         &hardware.disks,
@@ -333,41 +407,47 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        hc.virtual_disks,
         "Stockage virtuel (overlay Docker/containerd, etc.)",
         "| Nom | Système de fichiers | Point de montage |\n|---|---|---|",
         &hardware.virtual_disks,
         |disk| format!("| {} | {} | {} |", disk.name, disk.file_system, disk.mount_point),
     );
 
-    writeln!(md, "### Réseau ({} interface(s))", hardware.network.interfaces.len()).unwrap();
-    writeln!(
-        md,
-        "| Interface | Reçu (octets) | Émis (octets) | MAC | IPv4 | IPv6 | Vitesse (Mbps) | Type |"
-    )
-    .unwrap();
-    writeln!(md, "|---|---|---|---|---|---|---|---|").unwrap();
-    for network in &hardware.network.interfaces {
+    if hc.network {
+        writeln!(md, "### Réseau ({} interface(s))", hardware.network.interfaces.len()).unwrap();
         writeln!(
             md,
-            "| {} | {} | {} | {} | {} | {} | {} | {} |",
-            network.interface_name,
-            network.received_bytes,
-            network.transmitted_bytes,
-            opt(&network.mac_address),
-            if network.ipv4_addresses.is_empty() { "?".to_string() } else { network.ipv4_addresses.join(", ") },
-            if network.ipv6_addresses.is_empty() { "?".to_string() } else { network.ipv6_addresses.join(", ") },
-            network.link_speed_mbps.map(|v| v.to_string()).unwrap_or_else(|| "?".to_string()),
-            opt(&network.connection_type),
+            "| Interface | Reçu (octets) | Émis (octets) | MAC | IPv4 | IPv6 | Vitesse (Mbps) | Type |"
         )
         .unwrap();
+        writeln!(md, "|---|---|---|---|---|---|---|---|").unwrap();
+        for network in &hardware.network.interfaces {
+            writeln!(
+                md,
+                "| {} | {} | {} | {} | {} | {} | {} | {} |",
+                network.interface_name,
+                network.received_bytes,
+                network.transmitted_bytes,
+                opt(&network.mac_address),
+                if network.ipv4_addresses.is_empty() { "?".to_string() } else { network.ipv4_addresses.join(", ") },
+                if network.ipv6_addresses.is_empty() { "?".to_string() } else { network.ipv6_addresses.join(", ") },
+                network.link_speed_mbps.map(|v| v.to_string()).unwrap_or_else(|| "?".to_string()),
+                opt(&network.connection_type),
+            )
+            .unwrap();
+        }
+        writeln!(md).unwrap();
+        writeln!(md, "- Passerelle par défaut : {}", opt(&hardware.network.default_gateway)).unwrap();
+        writeln!(md, "- Serveurs DNS : {}", if hardware.network.dns_servers.is_empty() { "?".to_string() } else { hardware.network.dns_servers.join(", ") }).unwrap();
+        writeln!(md).unwrap();
+    } else {
+        np_section(md, "Réseau");
     }
-    writeln!(md).unwrap();
-    writeln!(md, "- Passerelle par défaut : {}", opt(&hardware.network.default_gateway)).unwrap();
-    writeln!(md, "- Serveurs DNS : {}", if hardware.network.dns_servers.is_empty() { "?".to_string() } else { hardware.network.dns_servers.join(", ") }).unwrap();
-    writeln!(md).unwrap();
 
     simple_list_section(
         md,
+        hc.wifi,
         "Wi-Fi",
         "| SSID | Signal (%) | Interface |\n|---|---|---|",
         &hardware.wifi,
@@ -383,6 +463,7 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        hc.pci_devices,
         "Périphériques PCI",
         "| Nom | Classe |\n|---|---|",
         &hardware.pci_devices,
@@ -391,6 +472,7 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        hc.components,
         "Capteurs / composants",
         "| Label | Température (°C) | Max (°C) | Critique (°C) |\n|---|---|---|---|",
         &hardware.components,
@@ -405,61 +487,70 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
         },
     );
 
-    writeln!(md, "### Batterie(s) ({})", hardware.batteries.len()).unwrap();
-    if !hardware.batteries.is_empty() {
-        writeln!(
-            md,
-            "| Fabricant | Modèle | État | Technologie | Charge % | Santé % | Cycles |"
-        )
-        .unwrap();
-        writeln!(md, "|---|---|---|---|---|---|---|").unwrap();
-        for battery in &hardware.batteries {
+    if hc.batteries {
+        writeln!(md, "### Batterie(s) ({})", hardware.batteries.len()).unwrap();
+        if !hardware.batteries.is_empty() {
             writeln!(
                 md,
-                "| {} | {} | {} | {} | {:.1} | {:.1} | {} |",
-                battery.vendor.as_deref().unwrap_or("?"),
-                battery.model.as_deref().unwrap_or("?"),
-                battery.state,
-                battery.technology,
-                battery.state_of_charge_percent,
-                battery.state_of_health_percent,
-                opt_num(battery.cycle_count.map(|c| c as f32))
+                "| Fabricant | Modèle | État | Technologie | Charge % | Santé % | Cycles |"
             )
             .unwrap();
+            writeln!(md, "|---|---|---|---|---|---|---|").unwrap();
+            for battery in &hardware.batteries {
+                writeln!(
+                    md,
+                    "| {} | {} | {} | {} | {:.1} | {:.1} | {} |",
+                    battery.vendor.as_deref().unwrap_or("?"),
+                    battery.model.as_deref().unwrap_or("?"),
+                    battery.state,
+                    battery.technology,
+                    battery.state_of_charge_percent,
+                    battery.state_of_health_percent,
+                    opt_num(battery.cycle_count.map(|c| c as f32))
+                )
+                .unwrap();
+            }
         }
+        writeln!(md).unwrap();
+    } else {
+        np_section(md, "Batterie(s)");
     }
-    writeln!(md).unwrap();
 
-    writeln!(md, "### Carte mère / BIOS").unwrap();
-    writeln!(md, "| Champ | Valeur |").unwrap();
-    writeln!(md, "|---|---|").unwrap();
-    writeln!(md, "| Fabricant | {} |", opt(&hardware.motherboard.vendor)).unwrap();
-    writeln!(md, "| Modèle | {} |", opt(&hardware.motherboard.model)).unwrap();
-    writeln!(md, "| Version | {} |", opt(&hardware.motherboard.version)).unwrap();
-    writeln!(
-        md,
-        "| Fabricant BIOS | {} |",
-        opt(&hardware.motherboard.bios_vendor)
-    )
-    .unwrap();
-    writeln!(
-        md,
-        "| Version BIOS | {} |",
-        opt(&hardware.motherboard.bios_version)
-    )
-    .unwrap();
-    writeln!(md, "| Date BIOS | {} |", opt(&hardware.motherboard.bios_date)).unwrap();
-    writeln!(
-        md,
-        "| UUID machine | {} |",
-        opt(&hardware.motherboard.machine_uuid)
-    )
-    .unwrap();
-    writeln!(md, "| Secure Boot | {} |", opt(&hardware.motherboard.secure_boot)).unwrap();
-    writeln!(md).unwrap();
+    if hc.motherboard {
+        writeln!(md, "### Carte mère / BIOS").unwrap();
+        writeln!(md, "| Champ | Valeur |").unwrap();
+        writeln!(md, "|---|---|").unwrap();
+        writeln!(md, "| Fabricant | {} |", opt(&hardware.motherboard.vendor)).unwrap();
+        writeln!(md, "| Modèle | {} |", opt(&hardware.motherboard.model)).unwrap();
+        writeln!(md, "| Version | {} |", opt(&hardware.motherboard.version)).unwrap();
+        writeln!(
+            md,
+            "| Fabricant BIOS | {} |",
+            opt(&hardware.motherboard.bios_vendor)
+        )
+        .unwrap();
+        writeln!(
+            md,
+            "| Version BIOS | {} |",
+            opt(&hardware.motherboard.bios_version)
+        )
+        .unwrap();
+        writeln!(md, "| Date BIOS | {} |", opt(&hardware.motherboard.bios_date)).unwrap();
+        writeln!(
+            md,
+            "| UUID machine | {} |",
+            opt(&hardware.motherboard.machine_uuid)
+        )
+        .unwrap();
+        writeln!(md, "| Secure Boot | {} |", opt(&hardware.motherboard.secure_boot)).unwrap();
+        writeln!(md).unwrap();
+    } else {
+        np_section(md, "Carte mère / BIOS");
+    }
 
     simple_list_section(
         md,
+        hc.gpus,
         "GPU(s)",
         "| Nom | Fabricant | VRAM (Mo) | Version driver |\n|---|---|---|---|",
         &hardware.gpus,
@@ -476,6 +567,7 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        hc.monitors,
         "Écran(s)",
         "| Nom | Résolution | Position | Échelle | Fréquence (Hz) | Primaire | Intégré |\n|---|---|---|---|---|---|---|",
         &hardware.monitors,
@@ -497,6 +589,7 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        hc.optical_drives,
         "Lecteurs optiques / disquettes",
         "| Nom | Fabricant | Type |\n|---|---|---|",
         &hardware.optical_drives,
@@ -512,6 +605,7 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        hc.peripherals,
         "Périphériques",
         "| Nom | Type |\n|---|---|",
         &hardware.peripherals,
@@ -520,6 +614,7 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        hc.mice,
         "Souris",
         "| Nom |\n|---|",
         &hardware.mice,
@@ -528,6 +623,7 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        hc.gamepads,
         "Manette(s)",
         "| Nom |\n|---|",
         &hardware.gamepads,
@@ -536,6 +632,7 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        hc.touchpads,
         "Touchpad(s)",
         "| Nom |\n|---|",
         &hardware.touchpads,
@@ -544,6 +641,7 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        hc.cameras,
         "Caméra(s)",
         "| Nom |\n|---|",
         &hardware.cameras,
@@ -552,6 +650,7 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        hc.usb_devices,
         "Périphériques externes (USB)",
         "| Nom | Fabricant |\n|---|---|",
         &hardware.usb_devices,
@@ -560,6 +659,7 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        hc.bluetooth_devices,
         "Périphériques Bluetooth appairés",
         "| Nom |\n|---|",
         &hardware.bluetooth_devices,
@@ -568,6 +668,7 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        hc.printers,
         "Imprimantes / Scanners",
         "| Nom | Type |\n|---|---|",
         &hardware.printers,
@@ -576,6 +677,7 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
 
     simple_list_section(
         md,
+        hc.fans,
         "Ventilateur(s)",
         "| Nom | Vitesse (tr/min) |\n|---|---|",
         &hardware.fans,
@@ -588,39 +690,58 @@ fn write_hardware(md: &mut String, report: &SystemReport) {
         },
     );
 
-    simple_list_section(
-        md,
-        "Partitions",
-        "| Périphérique | Système de fichiers | Taille (Go) |\n|---|---|---|",
-        &hardware.storage_layout.partitions,
-        |p| format!("| {} | {} | {} |", p.device, p.fs_type, p.size_gb),
-    );
+    if hc.storage_layout {
+        simple_list_section(
+            md,
+            true,
+            "Partitions",
+            "| Périphérique | Système de fichiers | Taille (Go) |\n|---|---|---|",
+            &hardware.storage_layout.partitions,
+            |p| format!("| {} | {} | {} |", p.device, p.fs_type, p.size_gb),
+        );
 
-    simple_list_section(
-        md,
-        "Volumes LVM",
-        "| Groupe de volumes | Volume logique | Taille (Go) |\n|---|---|---|",
-        &hardware.storage_layout.lvm_volumes,
-        |v| format!("| {} | {} | {} |", v.vg_name, v.lv_name, v.size_gb),
-    );
+        simple_list_section(
+            md,
+            true,
+            "Volumes LVM",
+            "| Groupe de volumes | Volume logique | Taille (Go) |\n|---|---|---|",
+            &hardware.storage_layout.lvm_volumes,
+            |v| format!("| {} | {} | {} |", v.vg_name, v.lv_name, v.size_gb),
+        );
 
-    simple_list_section(
-        md,
-        "Tableaux RAID logiciels",
-        "| Périphérique | Niveau | État | Membres |\n|---|---|---|---|",
-        &hardware.storage_layout.raid_arrays,
-        |r| format!("| {} | {} | {} | {} |", r.device, r.level, r.state, r.devices.join(", ")),
-    );
+        simple_list_section(
+            md,
+            true,
+            "Tableaux RAID logiciels",
+            "| Périphérique | Niveau | État | Membres |\n|---|---|---|---|",
+            &hardware.storage_layout.raid_arrays,
+            |r| format!("| {} | {} | {} | {} |", r.device, r.level, r.state, r.devices.join(", ")),
+        );
+    } else {
+        np_section(md, "Organisation du stockage (partitions / LVM / RAID)");
+    }
 
-    writeln!(md, "### Profil d'alimentation").unwrap();
-    writeln!(md, "| Champ | Valeur |").unwrap();
-    writeln!(md, "|---|---|").unwrap();
-    writeln!(md, "| Profil | {} |", opt(&hardware.power_profile.profile)).unwrap();
-    writeln!(md, "| Mode de veille | {} |", opt(&hardware.power_profile.sleep_mode)).unwrap();
-    writeln!(md).unwrap();
+    if hc.power_profile {
+        writeln!(md, "### Profil d'alimentation").unwrap();
+        writeln!(md, "| Champ | Valeur |").unwrap();
+        writeln!(md, "|---|---|").unwrap();
+        writeln!(md, "| Profil | {} |", opt(&hardware.power_profile.profile)).unwrap();
+        writeln!(md, "| Mode de veille | {} |", opt(&hardware.power_profile.sleep_mode)).unwrap();
+        writeln!(md).unwrap();
+    } else {
+        np_section(md, "Profil d'alimentation");
+    }
 }
 
-fn write_browsers(md: &mut String, report: &SystemReport) {
+fn write_browsers(md: &mut String, report: &SystemReport, consent: &ConsentConfig) {
+    if !consent.browsers {
+        writeln!(md, "## Navigateurs").unwrap();
+        writeln!(md).unwrap();
+        writeln!(md, "np").unwrap();
+        writeln!(md).unwrap();
+        return;
+    }
+
     writeln!(md, "## Navigateurs ({})", report.browsers.len()).unwrap();
     writeln!(md).unwrap();
     if report.browsers.is_empty() {
@@ -655,7 +776,15 @@ fn write_warnings(md: &mut String, report: &SystemReport) {
     writeln!(md).unwrap();
 }
 
-fn write_processes(md: &mut String, report: &SystemReport) {
+fn write_processes(md: &mut String, report: &SystemReport, consent: &ConsentConfig) {
+    if !consent.software.processes {
+        writeln!(md, "## Processus").unwrap();
+        writeln!(md).unwrap();
+        writeln!(md, "np").unwrap();
+        writeln!(md).unwrap();
+        return;
+    }
+
     let processes = &report.software.processes;
 
     writeln!(md, "## Processus ({} au total)", processes.total_count).unwrap();

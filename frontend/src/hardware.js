@@ -1,6 +1,7 @@
 import { listHardwareFields, saveConsent } from "./api.js";
 import { getConsentState, setConsentState } from "./state.js";
 import { t } from "./i18n.js";
+import { renderSoftware } from "./software.js";
 
 const GROUPS = [
   { id: "storage", fields: ["disks", "virtual_disks", "storage_layout", "optical_drives"] },
@@ -22,6 +23,7 @@ export async function renderHardware(root) {
       <div id="hardware-fields"></div>
       <button id="hardware-save"></button>
       <p id="hardware-status"></p>
+      <button id="hardware-next"></button>
     </main>
   `;
 
@@ -31,10 +33,13 @@ export async function renderHardware(root) {
   const fieldsContainer = root.querySelector("#hardware-fields");
   const saveButton = root.querySelector("#hardware-save");
   const status = root.querySelector("#hardware-status");
+  const nextButton = root.querySelector("#hardware-next");
 
   title.textContent = t("hardware.title");
   subtitle.textContent = t("hardware.subtitle");
   saveButton.textContent = t("hardware.save");
+  nextButton.textContent = t("hardware.next");
+  nextButton.addEventListener("click", () => renderSoftware(root));
 
   const fields = await listHardwareFields();
   const knownFields = GROUPS.flatMap((group) => group.fields);

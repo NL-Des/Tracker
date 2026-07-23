@@ -10,6 +10,7 @@ fn main() {
             commands::save_consent,
             commands::get_preset,
             commands::list_hardware_fields,
+            commands::list_software_fields,
             commands::collect_and_export,
         ])
         .run(tauri::generate_context!())
