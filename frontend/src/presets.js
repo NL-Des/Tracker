@@ -1,7 +1,6 @@
 import { getPreset, saveConsent } from "./api.js";
 import { setConsentState } from "./state.js";
 import { t } from "./i18n.js";
-import { renderHardware } from "./hardware.js";
 
 const PRESET_NAMES = ["none", "minimum", "medium", "maximum"];
 
@@ -12,7 +11,6 @@ export function renderPresets(root) {
       <p id="presets-subtitle"></p>
       <ul id="presets-list"></ul>
       <p id="presets-status"></p>
-      <button id="presets-next"></button>
     </main>
   `;
 
@@ -20,10 +18,6 @@ export function renderPresets(root) {
   const subtitle = root.querySelector("#presets-subtitle");
   const list = root.querySelector("#presets-list");
   const status = root.querySelector("#presets-status");
-  const nextButton = root.querySelector("#presets-next");
-
-  nextButton.textContent = t("presets.next");
-  nextButton.addEventListener("click", () => renderHardware(root));
 
   title.textContent = t("presets.title");
   subtitle.textContent = t("presets.subtitle");

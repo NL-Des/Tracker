@@ -1,7 +1,6 @@
 import { listSoftwareFields, saveConsent } from "./api.js";
-import { getConsentState, setConsentState } from "./state.js";
+import { getConsentState, setConsentState, subscribe } from "./state.js";
 import { t } from "./i18n.js";
-import { renderNetwork } from "./network.js";
 
 const GROUPS = [
   { id: "system", fields: ["os", "desktop_environment", "kernel_modules"] },
@@ -23,7 +22,6 @@ export async function renderSoftware(root) {
       <div id="software-fields"></div>
       <button id="software-save"></button>
       <p id="software-status"></p>
-      <button id="software-next"></button>
     </main>
   `;
 
@@ -33,13 +31,10 @@ export async function renderSoftware(root) {
   const fieldsContainer = root.querySelector("#software-fields");
   const saveButton = root.querySelector("#software-save");
   const status = root.querySelector("#software-status");
-  const nextButton = root.querySelector("#software-next");
 
   title.textContent = t("software.title");
   subtitle.textContent = t("software.subtitle");
   saveButton.textContent = t("software.save");
-  nextButton.textContent = t("software.next");
-  nextButton.addEventListener("click", () => renderNetwork(root));
 
   const fields = await listSoftwareFields();
   const knownFields = GROUPS.flatMap((group) => group.fields);
@@ -107,9 +102,24 @@ export async function renderSoftware(root) {
 
   showGroup(GROUPS[0].id);
 
+  // Resynchronise les cases (dont "browsers", à part) si le consentement change
+  // ailleurs (ex. un preset appliqué dans l'onglet "Niveaux globaux").
+  subscribe((next) => {
+    draft.software = structuredClone(next.software);
+    draft.browsers = next.browsers;
+    for (const checkbox of fieldsContainer.querySelectorAll("input[data-field]")) {
+      const field = checkbox.dataset.field;
+      checkbox.checked = field === "browsers" ? Boolean(draft.browsers) : Boolean(draft.software[field]);
+    }
+  });
+
   saveButton.addEventListener("click", async () => {
-    await saveConsent(draft);
-    setConsentState(draft);
+    // Ne fusionner que software/browsers sur l'état global courant : envoyer
+    // `draft` en entier écraserait hardware avec la copie potentiellement
+    // périmée capturée au montage de cette page.
+    const merged = { ...getConsentState(), software: draft.software, browsers: draft.browsers };
+    await saveConsent(merged);
+    setConsentState(merged);
     status.textContent = t("software.saved");
   });
 }

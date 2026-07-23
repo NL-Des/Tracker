@@ -1,7 +1,7 @@
 {
+  "tabs.home": "Home",
   "home.title": "tracker",
   "home.subtitle": "Control what is collected and shared from this machine.",
-  "home.enter": "Start",
   "presets.title": "Global levels",
   "presets.subtitle": "Pick a sharing level, adjustable afterwards in the Hardware and Software tabs.",
   "presets.none": "None",
@@ -13,7 +13,6 @@
   "presets.maximum": "Maximum",
   "presets.maximum.description": "Everything, including highly identifying information.",
   "presets.saved": "Preferences saved.",
-  "presets.next": "Next",
   "hardware.title": "Hardware",
   "hardware.subtitle": "Finely adjust each type of hardware information collected.",
   "hardware.save": "Save",
@@ -51,7 +50,6 @@
   "hardware.field.fans": "Fans",
   "hardware.field.storage_layout": "Storage layout",
   "hardware.field.power_profile": "Power profile",
-  "hardware.next": "Next",
   "software.title": "Software",
   "software.subtitle": "Finely adjust each type of software information collected.",
   "software.save": "Save",
@@ -90,7 +88,6 @@
   "software.field.proxy_config": "Proxy configuration",
   "software.field.ssh_keys": "SSH keys",
   "software.field.security_status": "Security status",
-  "software.next": "Next",
   "network.title": "Network",
   "network.coming_soon": "Coming soon."
 }

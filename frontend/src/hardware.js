@@ -1,7 +1,6 @@
 import { listHardwareFields, saveConsent } from "./api.js";
-import { getConsentState, setConsentState } from "./state.js";
+import { getConsentState, setConsentState, subscribe } from "./state.js";
 import { t } from "./i18n.js";
-import { renderSoftware } from "./software.js";
 
 const GROUPS = [
   { id: "storage", fields: ["disks", "virtual_disks", "storage_layout", "optical_drives"] },
@@ -23,7 +22,6 @@ export async function renderHardware(root) {
       <div id="hardware-fields"></div>
       <button id="hardware-save"></button>
       <p id="hardware-status"></p>
-      <button id="hardware-next"></button>
     </main>
   `;
 
@@ -33,13 +31,10 @@ export async function renderHardware(root) {
   const fieldsContainer = root.querySelector("#hardware-fields");
   const saveButton = root.querySelector("#hardware-save");
   const status = root.querySelector("#hardware-status");
-  const nextButton = root.querySelector("#hardware-next");
 
   title.textContent = t("hardware.title");
   subtitle.textContent = t("hardware.subtitle");
   saveButton.textContent = t("hardware.save");
-  nextButton.textContent = t("hardware.next");
-  nextButton.addEventListener("click", () => renderSoftware(root));
 
   const fields = await listHardwareFields();
   const knownFields = GROUPS.flatMap((group) => group.fields);
@@ -96,9 +91,23 @@ export async function renderHardware(root) {
 
   showGroup(GROUPS[0].id);
 
+  // Resynchronise les cases si le consentement change ailleurs (ex. un preset
+  // appliqué dans l'onglet "Niveaux globaux") sans reconstruire le DOM, pour ne
+  // pas perdre les cases déjà affichées ni la position du sous-onglet courant.
+  subscribe((next) => {
+    draft.hardware = structuredClone(next.hardware);
+    for (const checkbox of fieldsContainer.querySelectorAll("input[data-field]")) {
+      checkbox.checked = Boolean(draft.hardware[checkbox.dataset.field]);
+    }
+  });
+
   saveButton.addEventListener("click", async () => {
-    await saveConsent(draft);
-    setConsentState(draft);
+    // Ne fusionner que la tranche hardware sur l'état global courant : envoyer
+    // `draft` en entier écraserait software/browsers avec la copie potentiellement
+    // périmée capturée au montage de cette page.
+    const merged = { ...getConsentState(), hardware: draft.hardware };
+    await saveConsent(merged);
+    setConsentState(merged);
     status.textContent = t("hardware.saved");
   });
 }
