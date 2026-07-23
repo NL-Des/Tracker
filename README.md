@@ -1,33 +1,39 @@
 # Tracker
 
-Outil en ligne de commande qui collecte des informations matérielles, logicielles et autres sur la machine locale (Linux, macOS, Windows) et les exporte dans un rapport.
+Outil qui collecte des informations matérielles et logicielles sur la machine locale (Linux, macOS, Windows) et les exporte en JSON/Markdown/XML. Le projet a deux faces :
+
+- **CLI** (`tracker`, racine du repo) : collecte systématique et export non filtré, sans interaction.
+- **Client GUI** (`tracker-gui`, Tauri, dossier `src-tauri/` + `frontend/`) : même moteur de collecte, mais avec un écran de consentement (opt-in par catégorie ou par preset) avant l'export.
 
 ## Prérequis
 
 - Rust (édition 2024) et Cargo
+- Pour le client GUI uniquement : Node.js/npm (voir `docs/BUILD.md` pour les dépendances système par OS)
 
-## Build
+## Build & utilisation — CLI
 
 ```bash
 cargo build --release
-```
-
-## Utilisation
-
-```bash
 cargo run --release
 ```
 
-L'exécution génère trois fichiers dans le répertoire courant :
+Génère trois fichiers dans le répertoire courant (`tracker_report.json`, `.md`, `.xml`). Aucun argument de ligne de commande : toutes les catégories sont collectées et les trois formats sont toujours générés, sans filtrage.
 
-- `tracker_report.json`
-- `tracker_report.md`
-- `tracker_report.xml`
+## Build & utilisation — Client GUI
 
-Aucun argument de ligne de commande n'est actuellement disponible : toutes les catégories de données sont collectées et les trois formats sont toujours générés.
+```bash
+cd frontend && npm install
+cargo tauri dev   # ou: npx --prefix frontend tauri dev
+```
+
+Détails d'empaquetage multiplateforme : `docs/BUILD.md`.
 
 ## Données collectées
 
-Matériel (CPU, RAM, disques, réseau, GPU, écrans, batterie, capteurs, Bluetooth, USB, imprimantes, etc.), logiciel (OS, processus, services, tâches planifiées, applications installées, Docker/Podman, machines virtuelles, etc.) et navigateurs (versions, extensions). Le détail exhaustif des champs collectés se trouve dans `donnees.md`.
+Matériel (CPU, RAM, disques, réseau, GPU, écrans, batterie, capteurs, Bluetooth, USB, imprimantes, etc.), logiciel (OS, processus, services, tâches planifiées, applications installées, Docker/Podman, machines virtuelles, etc.) et navigateurs (versions, extensions). La collecte dégrade toujours silencieusement vers une valeur absente plutôt que d'échouer ; la couverture varie selon l'OS.
 
-Sur certains modules, la couverture varie selon l'OS (voir les commentaires dans le code de chaque module concerné) : la collecte dégrade toujours silencieusement vers une valeur absente plutôt que d'échouer.
+- Détail exhaustif de ce qui est collecté : `donnees_collectees.md`
+- Pistes non encore collectées (roadmap) : `Donnees_futures_a_collecter.md`
+- Fonctionnement du backend (modules de collecte, consentement, filtrage à l'export) : `README_backend_data_harvest.md`
+- Fonctionnement du client GUI (onglets, IPC, flux de consentement) : `README_frontend_client.md`
+- Suivi des points en suspens sur le client GUI : `plan_client.md`

@@ -1,10 +1,10 @@
 # Données du projet `tracker`
 
-> Ce document est une vue d'ensemble synthétique. Pour le détail champ par champ de chaque structure, voir `bilan.md`.
+> Ce document liste les données actuellement collectées par le code existant. Pour les données non encore collectées (roadmap), voir `Donnees_futures_a_collecter.md`. Pour l'explication du fonctionnement du backend, voir `README_backend_data_harvest.md`.
 
-## Liste 1 — Données actuellement collectées (collectées par le code existant)
+## Données collectées
 
-### Matériel (`src/hardware/`, agrégé dans `HardwareInfo`, 19 modules)
+### Matériel (`src/hardware/`, agrégé dans `HardwareInfo`, 21 modules)
 - **CPU** (`cpu.rs`) : architecture, cœurs (usage/fréquence/marque par cœur), usage global, vulnérabilités Spectre/Meltdown (Linux), gouverneur de fréquence (Linux), `ProcessorId` (Windows), version du microcode (Linux).
 - **Mémoire** (`memory.rs`) : RAM/swap totale et utilisée, détail par barrette (fabricant, numéro de série, capacité, fréquence — Windows uniquement).
 - **Disques** (`disks.rs`) : nom, type, système de fichiers, point de montage, amovible, taille, modèle et numéro de série (Linux/Windows, best-effort macOS), santé S.M.A.R.T. sommaire (NVMe). Disques physiques et montages virtuels séparés.
@@ -27,7 +27,7 @@
 - **Disposition du stockage** (`storage_layout.rs`) : table de partitions, volumes LVM, tableaux RAID logiciels (Linux principalement).
 - **Profil d'alimentation** (`power_profile.rs`) : profil actif (ex: "balanced"), mode de veille.
 
-### Logiciel (`src/software/`, agrégé dans `SoftwareInfo`, 16 modules)
+### Logiciel (`src/software/`, agrégé dans `SoftwareInfo`, 21 modules)
 - **OS** (`os_info.rs`) : nom, version noyau/OS, nom d'hôte, uptime.
 - **Processus** (`processes.rs`) : nombre total + liste complète (PID, nom, CPU %, mémoire), triée par usage CPU.
 - **Comptes utilisateurs** (`users.rs`) : nom, UID, GID, groupes, indicateur admin/sudo (dérivé des groupes sur Linux/macOS, de `net localgroup administrators` sur Windows) — comptes système, pas les sessions connectées.
@@ -59,49 +59,3 @@
 - Horodatage de génération (Unix), version de l'outil, avertissements de collecte (ex. UUID inaccessible, aucun écran/GPU/navigateur détecté).
 
 Tout ceci est sérialisé dans `tracker_report.json` à la racine du projet.
-
----
-
-## Liste 2 — Données supplémentaires potentiellement exploitables (non collectées actuellement)
-
-### Matériel / système bas niveau
-- Historique d'usage CPU/mémoire dans le temps (séries temporelles au lieu d'un instantané unique).
-- Fréquence et latence RAM (timings), nombre de barrettes, emplacements.
-- Santé disque S.M.A.R.T. détaillée (secteurs défectueux, durée de vie estimée, cycles d'écriture SSD) — seul le statut sommaire PASSED/FAILED sur NVMe est collecté ; SATA/ATA nécessite généralement root.
-- Courbes de refroidissement des ventilateurs et marque/modèle (vitesse RPM déjà collectée ; le reste vit dans les tables SMBIOS type 27, nécessite root).
-- Historique/courbe de charge de la batterie (dégradation dans le temps, pas juste une valeur instantanée).
-- Adresse IP publique (nécessiterait une requête sortante vers un service externe — hors périmètre pour l'instant, le projet reste sans dépendance réseau sortante ; adresse IP locale/passerelle/DNS déjà collectés).
-- **Vitesse de liaison réseau et type de connexion sur macOS** — implémentés sur Linux/Windows, pas de source lecture-libre identifiée sur macOS pour l'instant.
-- **RAID logiciel / LVM sur macOS et Windows** — implémentés sur Linux uniquement.
-
-### Logiciel / OS
-- Historique de démarrage (crashs, temps de boot).
-- Logs système récents (erreurs noyau, journaux d'événements) — nécessite généralement root pour les logs complets.
-- **Containerd** (`ctr`/`nerdctl`) — volontairement non couvert, son socket nécessite généralement root (Docker et Podman sont couverts).
-
-### Données d'usage / comportement (nécessiterait suivi dans le temps)
-- Temps d'utilisation par application (pas seulement instantané CPU/mémoire).
-- Historique de connexion/déconnexion utilisateur.
-- Fréquence de lancement des applications.
-
-> Volontairement exclu du périmètre pour rester non intrusif : historique du presse-papiers, liste des fichiers récemment ouverts, tout suivi fin de l'usage applicatif au-delà d'un instantané.
-
-### Métadonnées / qualité de collecte
-- Bilan structuré (et non une simple liste de messages texte) : pour chaque champ attendu, statut collecté/échoué + raison de l'échec (permissions insuffisantes, capteur absent, plateforme non supportée, etc.), plutôt que la liste actuelle de chaînes libres dans `collection_warnings`.
-
-### Données externes (nécessiteraient une connexion réseau, actuellement absente du projet)
-- Météo locale (via une API météo).
-- Cours de cryptomonnaies/bourse (si pertinent pour un futur usage financier).
-- Vérification de version la plus récente disponible pour les applications installées (comparaison avec un registre en ligne).
-- Géolocalisation approximative (IP → ville) pour enrichir le rapport.
-- Vulnérabilités connues (CVE) pour les logiciels installés détectés.
-
-### Sécurité / conformité
-- État du pare-feu, chiffrement de disque, produit antivirus : implémentés en best-effort sans admin (voir `security_status.rs` en Liste 1) — reste non couvert : règles de pare-feu détaillées, statut BitLocker sur Windows (nécessite une élévation en pratique malgré la documentation Microsoft).
-
-### Nécessite systématiquement root/admin
-- UUID machine (`/sys/class/dmi/id/product_uuid` sur Linux).
-- `dmidecode` sur Linux (BIOS bas niveau, RAM détaillée si sysfs insuffisant).
-- Historique boot/crash détaillé, logs noyau complets (`dmesg` complet).
-- Liste de tous les ports ouverts par tous les utilisateurs (selon OS).
-- Règles de pare-feu détaillées, statut BitLocker sur Windows (`manage-bde`/`Get-BitLockerVolume` exigent une élévation en pratique).
