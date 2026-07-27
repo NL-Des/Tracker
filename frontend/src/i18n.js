@@ -14,7 +14,7 @@ export function getLocale() {
   return currentLocale;
 }
 
-// Bascule la langue côté frontend et notifie le backend Rust (collection_warnings, etc.)
+// Bascule la langue côté frontend et notifie le backend Rust (collection_status, etc.)
 // pour que les deux restent synchronisés.
 export async function setLocale(locale) {
   if (!dictionaries[locale]) return;

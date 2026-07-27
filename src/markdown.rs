@@ -21,7 +21,7 @@ pub fn generate(report: &SystemReport, consent: &ConsentConfig) -> String {
 }
 
 /// Placeholder écrit à la place d'un bloc complet quand le champ correspondant
-/// est désactivé dans le `ConsentConfig` (cf. plan_client.md étape 9).
+/// est désactivé dans le `ConsentConfig`.
 fn np_section(md: &mut String, title: &str) {
     writeln!(md, "### {title}").unwrap();
     writeln!(md).unwrap();
@@ -765,13 +765,15 @@ fn write_browsers(md: &mut String, report: &SystemReport, consent: &ConsentConfi
 }
 
 fn write_warnings(md: &mut String, report: &SystemReport) {
-    if report.collection_warnings.is_empty() {
+    let unavailable: Vec<_> =
+        report.collection_status.iter().filter(|status| status.status == "unavailable").collect();
+    if unavailable.is_empty() {
         return;
     }
     writeln!(md, "## Avertissements de collecte").unwrap();
     writeln!(md).unwrap();
-    for warning in &report.collection_warnings {
-        writeln!(md, "- {warning}").unwrap();
+    for status in unavailable {
+        writeln!(md, "- {} : {}", status.field, status.reason.as_deref().unwrap_or("?")).unwrap();
     }
     writeln!(md).unwrap();
 }

@@ -1,8 +1,7 @@
 import { t } from "./i18n.js";
 
 // Aucune logique de collecte réseau côté Rust n'existe encore : simple point
-// d'ancrage de navigation, sans `NetworkConsent` ni contenu de remplissage
-// (cf. plan_client.md étape 8).
+// d'ancrage de navigation, sans `NetworkConsent` ni contenu de remplissage.
 export function renderNetwork(root) {
   root.innerHTML = `
     <main>

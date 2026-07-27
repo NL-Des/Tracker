@@ -12,7 +12,7 @@ Ce document explique le fonctionnement du client graphique Tauri qui s'intercale
 
 | Commande | Rôle |
 |---|---|
-| `set_locale(locale)` | Synchronise la langue du backend Rust (utilisée pour `collection_warnings`) sur celle choisie côté frontend. |
+| `set_locale(locale)` | Synchronise la langue du backend Rust (utilisée pour `collection_status`) sur celle choisie côté frontend. |
 | `get_consent()` | Charge `ConsentConfig` depuis le disque (`tracker::consent::load()`), ou la config par défaut (tout désactivé) si aucun fichier n'existe. |
 | `save_consent(config)` | Horodate `accepted_at_unix` puis sauvegarde `ConsentConfig` sur disque. |
 | `list_hardware_fields()` / `list_software_fields()` | Retourne dynamiquement les clés de `HardwareConsent`/`SoftwareConsent` (introspection JSON) — le frontend ne code jamais les noms de champs en dur, seulement leur regroupement/libellés. |
@@ -30,7 +30,7 @@ Ce document explique le fonctionnement du client graphique Tauri qui s'intercale
 ## 4. Les 5 onglets
 
 ### Accueil (`home.js`)
-Sélecteur de langue (FR/EN) + bouton "Récolter les données" qui appelle `collect_and_export(["json", "markdown", "xml"], ".")` (écrit dans le répertoire courant du processus, comme le CLI — pas de sélecteur de dossier dans cette première version). Aucune logique d'authentification : l'écran d'accueil reste un simple point d'ancrage (voir `plan_client.md`, question ouverte sur l'authentification).
+Sélecteur de langue (FR/EN) + bouton "Récolter les données" qui appelle `collect_and_export(["json", "markdown", "xml"], ".")` (écrit dans le répertoire courant du processus, comme le CLI — pas de sélecteur de dossier dans cette première version). Aucune logique d'authentification : l'écran d'accueil reste un simple point d'ancrage.
 
 ### Niveaux globaux (`presets.js`)
 Liste les 4 presets. Au clic sur un preset : `getPreset(name)` → `saveConsent(config)` → `setConsentState(config)`, qui propage automatiquement le changement aux onglets Hardware/Software déjà montés (via `subscribe`).

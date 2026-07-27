@@ -25,8 +25,7 @@ dans `src-tauri/`) sur les trois OS cibles. Le crate `tracker` (CLI, `cargo buil
 - WKWebView : natif, aucune dépendance système supplémentaire.
 - Cibles de bundle : `.app`, `.dmg`.
 - Signature / notarization : nécessaire pour une distribution hors Mac App Store sans
-  avertissement Gatekeeper. Canal de distribution encore à trancher avec le client
-  (décision différée, cf. `plan_client.md`).
+  avertissement Gatekeeper. Canal de distribution encore à trancher.
 
 ## Build local
 

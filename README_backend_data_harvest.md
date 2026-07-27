@@ -1,6 +1,6 @@
 # Backend & récolte de données — `tracker`
 
-Ce document explique le fonctionnement interne du crate Rust `tracker` : comment les données sont collectées, structurées, filtrées selon le consentement de l'utilisateur, puis exportées. Pour la liste exhaustive des champs collectés, voir `donnees_collectees.md`. Pour ce qui n'est pas encore collecté, voir `Donnees_futures_a_collecter.md`. Pour le client graphique qui consomme ce backend, voir `README_frontend_client.md`.
+Ce document explique le fonctionnement interne du crate Rust `tracker` : comment les données sont collectées, structurées, filtrées selon le consentement de l'utilisateur, puis exportées. Pour la liste exhaustive des champs collectés, voir `donnees_collectees.md`. Pour le client graphique qui consomme ce backend, voir `README_frontend_client.md`.
 
 ## 1. Architecture du workspace
 
@@ -26,12 +26,12 @@ Chaque module suit la même philosophie : **collecte best-effort, sans droits ro
 
 ## 3. Le rapport (`src/report.rs`)
 
-`SystemReport` agrège `hardware: HardwareInfo`, `software: SoftwareInfo`, `browsers: Vec<BrowserInfo>`, plus des métadonnées (`generated_at_unix`, `tool_version`, `collection_warnings: Vec<String>`).
+`SystemReport` agrège `hardware: HardwareInfo`, `software: SoftwareInfo`, `browsers: Vec<BrowserInfo>`, plus des métadonnées (`generated_at_unix`, `tool_version`, `collection_status: Vec<FieldCollectionStatus>`).
 
 `SystemReport::collect()` :
 1. Initialise `sysinfo::System`, avec un double rafraîchissement CPU (`sysinfo::MINIMUM_CPU_UPDATE_INTERVAL` de délai) car `sysinfo` a besoin de deux mesures espacées pour calculer un usage CPU fiable — ce `sleep` bloquant est la raison pour laquelle la commande IPC `collect_and_export` côté GUI l'exécute dans `spawn_blocking` (voir `README_frontend_client.md`).
 2. Appelle `hardware::collect()`, `software::collect()`, `browsers::collect()`.
-3. Génère des avertissements traduits (`collection_warnings`) pour les cas notables : UUID machine inaccessible, aucun écran/GPU/navigateur détecté.
+3. Génère un bilan structuré (`collection_status`, liste de `FieldCollectionStatus { field, status, reason }`) pour les champs jugés fragiles : UUID machine, écrans, GPU, navigateurs — statut `"collected"`/`"unavailable"` avec raison traduite le cas échéant.
 
 ## 4. Modèle de consentement (`src/consent.rs`)
 
@@ -54,7 +54,7 @@ Décision d'architecture : la collecte interne (`SystemReport::collect()`) reste
 
 ## 6. Internationalisation (backend)
 
-`rust-i18n` (`rust_i18n::i18n!("locales", fallback = "en")` dans `lib.rs`), fichiers `locales/fr.yml`/`locales/en.yml`. Le scope est **volontairement limité** aux `collection_warnings` de `report.rs` (les titres de section codés en dur dans `markdown.rs`/`xml.rs` restent en français, hors périmètre v1). La locale est positionnée via `rust_i18n::set_locale(...)`, appelée par le CLI (`main.rs`, via `LANG`) ou par la commande IPC `set_locale` côté GUI.
+`rust-i18n` (`rust_i18n::i18n!("locales", fallback = "en")` dans `lib.rs`), fichiers `locales/fr.yml`/`locales/en.yml`. Le scope est **volontairement limité** aux `reason` de `collection_status` dans `report.rs` (les titres de section codés en dur dans `markdown.rs`/`xml.rs` restent en français, hors périmètre v1). La locale est positionnée via `rust_i18n::set_locale(...)`, appelée par le CLI (`main.rs`, via `LANG`) ou par la commande IPC `set_locale` côté GUI.
 
 ## 7. Tests
 

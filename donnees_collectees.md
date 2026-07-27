@@ -1,6 +1,6 @@
 # Données du projet `tracker`
 
-> Ce document liste les données actuellement collectées par le code existant. Pour les données non encore collectées (roadmap), voir `Donnees_futures_a_collecter.md`. Pour l'explication du fonctionnement du backend, voir `README_backend_data_harvest.md`.
+> Ce document liste les données actuellement collectées par le code existant. Pour l'explication du fonctionnement du backend, voir `README_backend_data_harvest.md`.
 
 ## Données collectées
 
@@ -8,7 +8,7 @@
 - **CPU** (`cpu.rs`) : architecture, cœurs (usage/fréquence/marque par cœur), usage global, vulnérabilités Spectre/Meltdown (Linux), gouverneur de fréquence (Linux), `ProcessorId` (Windows), version du microcode (Linux).
 - **Mémoire** (`memory.rs`) : RAM/swap totale et utilisée, détail par barrette (fabricant, numéro de série, capacité, fréquence — Windows uniquement).
 - **Disques** (`disks.rs`) : nom, type, système de fichiers, point de montage, amovible, taille, modèle et numéro de série (Linux/Windows, best-effort macOS), santé S.M.A.R.T. sommaire (NVMe). Disques physiques et montages virtuels séparés.
-- **Réseau** (`network.rs`) : interfaces (octets reçus/transmis cumulés, adresse MAC, adresses IPv4/IPv6, vitesse de liaison, type de connexion filaire/wifi/virtuel, débit instantané mesuré en Mbps), passerelle par défaut, serveurs DNS (Linux).
+- **Réseau** (`network.rs`) : interfaces (octets reçus/transmis cumulés, adresse MAC, adresses IPv4/IPv6, vitesse de liaison, type de connexion filaire/wifi/virtuel — Linux/Windows/macOS (`ifconfig`/`networksetup`) —, débit instantané mesuré en Mbps), passerelle par défaut, serveurs DNS (Linux).
 - **Wi-Fi** (`wifi.rs`) : SSID, force du signal, interface, débit de liaison (Mbps) — connexion(s) active(s) uniquement.
 - **Périphériques PCI** (`pci_devices.rs`) : nom, classe.
 - **Capteurs/composants** (`components.rs`) : label, températures actuelle/max/critique.
@@ -20,11 +20,11 @@
 - **Périphériques génériques** (`peripherals.rs`) : nom, type (clavier, enceintes, ...).
 - **Souris / manettes / touchpads** (`input_devices.rs`) : nom, par catégorie.
 - **Caméras** (`camera.rs`) : nom.
-- **Périphériques USB** (`usb_devices.rs`) : nom, fabricant, classification de classe (best-effort, "None" si non déterminable).
+- **Périphériques USB** (`usb_devices.rs`) : nom, fabricant, classification de classe — au niveau device et, pour les appareils composites (Linux), au niveau interface via `bInterfaceClass` ; sur macOS via corrélation `system_profiler`/`ioreg` (best-effort, "None" si non déterminable).
 - **Périphériques Bluetooth appairés** (`bluetooth_devices.rs`) : nom.
 - **Imprimantes / scanners** (`printers.rs`) : nom, type.
 - **Ventilateurs** (`fans.rs`) : nom, vitesse RPM (souvent absente sur laptop).
-- **Disposition du stockage** (`storage_layout.rs`) : table de partitions, volumes LVM, tableaux RAID logiciels (Linux principalement).
+- **Disposition du stockage** (`storage_layout.rs`) : table de partitions (Linux/macOS/Windows), volumes LVM (Linux uniquement), tableaux RAID logiciels (`mdadm` Linux, RAID Apple `diskutil appleRAID` macOS, Storage Spaces WMI Windows).
 - **Profil d'alimentation** (`power_profile.rs`) : profil actif (ex: "balanced"), mode de veille.
 
 ### Logiciel (`src/software/`, agrégé dans `SoftwareInfo`, 21 modules)
@@ -56,6 +56,6 @@
 - Nom, version (obtenue en exécutant `--version`), chemin, navigateur par défaut (bool), extensions installées (id/nom/version, lues dans le profil par défaut — Chrome/Chromium/Brave/Edge/Opera/Vivaldi et Firefox ; `None` si le profil n'a pas pu être localisé).
 
 ### Métadonnées du rapport (`src/report.rs`)
-- Horodatage de génération (Unix), version de l'outil, avertissements de collecte (ex. UUID inaccessible, aucun écran/GPU/navigateur détecté).
+- Horodatage de génération (Unix), version de l'outil, bilan structuré de qualité de collecte (`collection_status` : statut collecté/indisponible + raison par champ jugé fragile — UUID machine, écrans, GPU, navigateurs).
 
 Tout ceci est sérialisé dans `tracker_report.json` à la racine du projet.

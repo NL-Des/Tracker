@@ -745,14 +745,18 @@ fn write_browsers(xml: &mut String, report: &SystemReport, consent: &ConsentConf
 }
 
 fn write_warnings(xml: &mut String, report: &SystemReport) {
-    simple_list_section(
-        xml,
-        true,
-        "collection_warnings",
-        "warning",
-        &report.collection_warnings,
-        |warning| esc(warning),
-    );
+    writeln!(xml, "<collection_status count=\"{}\">", report.collection_status.len()).unwrap();
+    for status in &report.collection_status {
+        writeln!(
+            xml,
+            "<field name=\"{}\"><status>{}</status><reason>{}</reason></field>",
+            esc(&status.field),
+            esc(&status.status),
+            esc(status.reason.as_deref().unwrap_or(""))
+        )
+        .unwrap();
+    }
+    writeln!(xml, "</collection_status>").unwrap();
 }
 
 fn write_processes(xml: &mut String, report: &SystemReport, consent: &ConsentConfig) {

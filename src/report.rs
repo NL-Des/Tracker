@@ -12,7 +12,29 @@ pub struct SystemReport {
     pub hardware: hardware::HardwareInfo,
     pub software: software::SoftwareInfo,
     pub browsers: Vec<browsers::BrowserInfo>,
-    pub collection_warnings: Vec<String>,
+    pub collection_status: Vec<FieldCollectionStatus>,
+}
+
+/// Statut de collecte d'un champ jugé fragile (dépend souvent de la
+/// plateforme ou des privilèges), en remplacement d'une simple liste de
+/// messages texte libres. `field` est le chemin pointé (ex.
+/// "hardware.motherboard.machine_uuid"), `reason` est déjà traduit selon la
+/// locale active — vide/`None` quand `status` vaut `"collected"`.
+#[derive(Serialize)]
+pub struct FieldCollectionStatus {
+    pub field: String,
+    pub status: String,
+    pub reason: Option<String>,
+}
+
+impl FieldCollectionStatus {
+    fn collected(field: &str) -> Self {
+        Self { field: field.to_string(), status: "collected".to_string(), reason: None }
+    }
+
+    fn unavailable(field: &str, reason: String) -> Self {
+        Self { field: field.to_string(), status: "unavailable".to_string(), reason: Some(reason) }
+    }
 }
 
 impl SystemReport {
@@ -28,19 +50,40 @@ impl SystemReport {
         let software = software::collect(&sys);
         let browsers = browsers::collect();
 
-        let mut collection_warnings = Vec::new();
-        if hardware.motherboard.machine_uuid.is_none() {
-            collection_warnings.push(rust_i18n::t!("warnings.machine_uuid_unavailable").to_string());
-        }
-        if hardware.monitors.is_empty() {
-            collection_warnings.push(rust_i18n::t!("warnings.no_monitor_detected").to_string());
-        }
-        if hardware.gpus.is_empty() {
-            collection_warnings.push(rust_i18n::t!("warnings.no_gpu_detected").to_string());
-        }
-        if browsers.is_empty() {
-            collection_warnings.push(rust_i18n::t!("warnings.no_browser_detected").to_string());
-        }
+        let collection_status = vec![
+            if hardware.motherboard.machine_uuid.is_some() {
+                FieldCollectionStatus::collected("hardware.motherboard.machine_uuid")
+            } else {
+                FieldCollectionStatus::unavailable(
+                    "hardware.motherboard.machine_uuid",
+                    rust_i18n::t!("warnings.machine_uuid_unavailable").to_string(),
+                )
+            },
+            if !hardware.monitors.is_empty() {
+                FieldCollectionStatus::collected("hardware.monitors")
+            } else {
+                FieldCollectionStatus::unavailable(
+                    "hardware.monitors",
+                    rust_i18n::t!("warnings.no_monitor_detected").to_string(),
+                )
+            },
+            if !hardware.gpus.is_empty() {
+                FieldCollectionStatus::collected("hardware.gpus")
+            } else {
+                FieldCollectionStatus::unavailable(
+                    "hardware.gpus",
+                    rust_i18n::t!("warnings.no_gpu_detected").to_string(),
+                )
+            },
+            if !browsers.is_empty() {
+                FieldCollectionStatus::collected("browsers")
+            } else {
+                FieldCollectionStatus::unavailable(
+                    "browsers",
+                    rust_i18n::t!("warnings.no_browser_detected").to_string(),
+                )
+            },
+        ];
 
         SystemReport {
             generated_at_unix: SystemTime::now()
@@ -51,7 +94,7 @@ impl SystemReport {
             hardware,
             software,
             browsers,
-            collection_warnings,
+            collection_status,
         }
     }
 
@@ -60,8 +103,8 @@ impl SystemReport {
     }
 
     /// Sérialise le rapport en remplaçant par `"np"` chaque champ Hardware/Software
-    /// désactivé dans `consent` (cf. plan_client.md étape 9). Introspecte
-    /// dynamiquement `consent.hardware`/`consent.software` plutôt que de coder
+    /// désactivé dans `consent`. Introspecte dynamiquement
+    /// `consent.hardware`/`consent.software` plutôt que de coder
     /// les ~47 clés en dur, pour rester aligné avec `HARDWARE_FIELDS`/`SOFTWARE_FIELDS`.
     pub fn to_json_pretty_filtered(&self, consent: &ConsentConfig) -> serde_json::Result<String> {
         let mut value = serde_json::to_value(self)?;

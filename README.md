@@ -33,7 +33,5 @@ Détails d'empaquetage multiplateforme : `docs/BUILD.md`.
 Matériel (CPU, RAM, disques, réseau, GPU, écrans, batterie, capteurs, Bluetooth, USB, imprimantes, etc.), logiciel (OS, processus, services, tâches planifiées, applications installées, Docker/Podman, machines virtuelles, etc.) et navigateurs (versions, extensions). La collecte dégrade toujours silencieusement vers une valeur absente plutôt que d'échouer ; la couverture varie selon l'OS.
 
 - Détail exhaustif de ce qui est collecté : `donnees_collectees.md`
-- Pistes non encore collectées (roadmap) : `Donnees_futures_a_collecter.md`
 - Fonctionnement du backend (modules de collecte, consentement, filtrage à l'export) : `README_backend_data_harvest.md`
 - Fonctionnement du client GUI (onglets, IPC, flux de consentement) : `README_frontend_client.md`
-- Suivi des points en suspens sur le client GUI : `plan_client.md`
