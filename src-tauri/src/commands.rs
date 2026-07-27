@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use tracker::consent::{ConsentConfig, ConsentPreset, HardwareConsent, SoftwareConsent};
+use tracker::remote_export::RemoteExportConfig;
 use tracker::SystemReport;
 
 #[tauri::command]
@@ -23,6 +24,18 @@ pub fn save_consent(mut config: ConsentConfig) -> Result<(), String> {
             .as_secs(),
     );
     tracker::consent::save(&config).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_remote_export_config() -> Result<RemoteExportConfig, String> {
+    tracker::remote_export::load()
+        .map_err(|e| e.to_string())
+        .map(|opt| opt.unwrap_or_default())
+}
+
+#[tauri::command]
+pub fn save_remote_export_config(config: RemoteExportConfig) -> Result<(), String> {
+    tracker::remote_export::save(&config).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -64,6 +77,13 @@ pub async fn collect_and_export(
         // `SystemReport::collect()` dort volontairement (échantillonnage CPU) —
         // toujours l'exécuter hors du thread de l'event loop de la webview.
         let report = SystemReport::collect();
+
+        // L'historique local stocke toujours le rapport complet, non filtré :
+        // le filtrage "np" ne s'applique qu'aux exports fichiers ci-dessous.
+        if let Err(e) = tracker::storage::record_snapshot(&report) {
+            eprintln!("Erreur lors de l'enregistrement en base : {e}");
+        }
+
         // Le filtrage "np" (étape 9) n'existe que côté GUI : on charge le
         // consentement courant de l'utilisateur avant l'export.
         let consent = tracker::consent::load()
@@ -94,10 +114,42 @@ pub async fn collect_and_export(
             written.push(path.display().to_string());
         }
 
+        // Étape supplémentaire best-effort, symétrique à l'enregistrement
+        // SQLite ci-dessus : ne doit jamais faire échouer `collect_and_export`,
+        // même si la config est corrompue ou le réseau indisponible. On
+        // avale volontairement toute erreur de lecture de
+        // `remote_export.json` : une config distante illisible ne doit pas
+        // bloquer les exports fichiers déjà écrits.
+        let remote_config = tracker::remote_export::load().ok().flatten().unwrap_or_default();
+        if remote_config.enabled {
+            match report.to_json_pretty_filtered(&consent) {
+                Ok(json_body) => {
+                    if let Err(e) = tracker::remote_export::send_report(&remote_config, &json_body) {
+                        eprintln!("Erreur lors de l'envoi du rapport au serveur distant : {e}");
+                    }
+                }
+                Err(e) => eprintln!(
+                    "Erreur lors de la sérialisation du rapport pour l'export distant : {e}"
+                ),
+            }
+        }
+
         Ok(written)
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn list_snapshots() -> Result<Vec<tracker::storage::SnapshotSummary>, String> {
+    let conn = tracker::storage::open()?;
+    tracker::storage::list_snapshots(&conn)
+}
+
+#[tauri::command]
+pub fn get_snapshot(id: i64) -> Result<Option<String>, String> {
+    let conn = tracker::storage::open()?;
+    tracker::storage::get_snapshot_json(&conn, id)
 }
 
 #[cfg(test)]

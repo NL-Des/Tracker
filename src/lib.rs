@@ -6,8 +6,10 @@ pub mod consent;
 pub mod hardware;
 pub mod markdown;
 pub mod os_dispatch;
+pub mod remote_export;
 pub mod report;
 pub mod software;
+pub mod storage;
 pub mod xml;
 
 pub use report::SystemReport;

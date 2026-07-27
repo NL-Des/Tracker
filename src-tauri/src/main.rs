@@ -11,7 +11,11 @@ fn main() {
             commands::get_preset,
             commands::list_hardware_fields,
             commands::list_software_fields,
+            commands::get_remote_export_config,
+            commands::save_remote_export_config,
             commands::collect_and_export,
+            commands::list_snapshots,
+            commands::get_snapshot,
         ])
         .run(tauri::generate_context!())
         .expect("erreur lors du lancement de l'application tauri");

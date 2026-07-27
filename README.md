@@ -35,3 +35,4 @@ Matériel (CPU, RAM, disques, réseau, GPU, écrans, batterie, capteurs, Bluetoo
 - Détail exhaustif de ce qui est collecté : `donnees_collectees.md`
 - Fonctionnement du backend (modules de collecte, consentement, filtrage à l'export) : `README_backend_data_harvest.md`
 - Fonctionnement du client GUI (onglets, IPC, flux de consentement) : `README_frontend_client.md`
+- Comment les données sont envoyées/exportées (fichiers, historique SQLite, envoi HTTP distant) : `README_data_how_they_are_send.md`

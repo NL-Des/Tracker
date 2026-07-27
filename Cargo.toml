@@ -20,6 +20,8 @@ debug = 1
 [dependencies]
 directories = "5"
 display-info = "0.5.9"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+rusqlite = { version = "0.31", features = ["bundled"] }
 rust-i18n = "3"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"

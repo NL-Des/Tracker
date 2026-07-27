@@ -93,5 +93,12 @@
   "software.field.ssh_keys": "SSH keys",
   "software.field.security_status": "Security status",
   "network.title": "Network",
-  "network.coming_soon": "Coming soon."
+  "network.coming_soon": "Coming soon.",
+  "settings.title": "Settings",
+  "settings.subtitle": "Configure automatic sending of reports to a remote server.",
+  "settings.remote.enabled": "Enable automatic HTTP export",
+  "settings.remote.url": "Server URL (POST JSON)",
+  "settings.save": "Save",
+  "settings.saved": "Preferences saved.",
+  "settings.error": "Error while saving:"
 }

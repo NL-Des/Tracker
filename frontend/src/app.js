@@ -3,6 +3,7 @@ import { renderPresets } from "./presets.js";
 import { renderHardware } from "./hardware.js";
 import { renderSoftware } from "./software.js";
 import { renderNetwork } from "./network.js";
+import { renderSettings } from "./settings.js";
 import { t } from "./i18n.js";
 
 const TABS = [
@@ -11,6 +12,7 @@ const TABS = [
   { id: "hardware", render: renderHardware, labelKey: "hardware.title" },
   { id: "software", render: renderSoftware, labelKey: "software.title" },
   { id: "network", render: renderNetwork, labelKey: "network.title" },
+  { id: "settings", render: renderSettings, labelKey: "settings.title" },
 ];
 
 // Chaque page est montée une seule fois (comme de vrais onglets de navigateur) :

@@ -1,0 +1,82 @@
+# Envoi & export des données — vue d'ensemble
+
+Ce document explique **tout ce qui fait sortir les données** de la collecte en mémoire (`SystemReport`) : écriture de fichiers, historisation locale et envoi à un serveur distant. Pour la collecte elle-même, le modèle de consentement et le mécanisme de filtrage `"np"`, voir `README_backend_data_harvest.md`. Pour l'UI qui pilote ces envois, voir `README_frontend_client.md`.
+
+## 1. Vue d'ensemble
+
+Une seule commande IPC déclenche les trois mécanismes : `collect_and_export(formats, output_dir)` (`src-tauri/src/commands.rs:71-141`). À chaque appel :
+
+```
+SystemReport::collect()
+        │
+        ├─▶ 1. Historique SQLite local        (toujours, non filtré)      src/storage/mod.rs
+        │
+        ├─▶ 2. Fichiers JSON/Markdown/XML      (filtré "np" côté GUI)     src/report.rs, markdown.rs, xml.rs
+        │
+        └─▶ 3. Envoi HTTP vers un serveur      (filtré "np", optionnel)   src/remote_export.rs
+             distant (si activé par l'utilisateur)
+```
+
+Les trois branches sont indépendantes et **best-effort** : l'échec de l'une n'empêche jamais les autres de s'exécuter (voir le détail de gestion d'erreur dans chaque section).
+
+## 2. Exports fichiers (JSON / Markdown / XML)
+
+- Génération : `SystemReport::save_json_filtered` / `save_markdown_filtered` / `save_xml_filtered` (`src/report.rs`), qui appliquent le filtrage `"np"` décrit dans `README_backend_data_harvest.md` §5 avant d'écrire sur disque.
+- Déclenchement : boucle sur le paramètre `formats: Vec<String>` de `collect_and_export` (`commands.rs:95-115`), écriture dans `output_dir` sous les noms `tracker_report.json/.md/.xml`.
+- **CLI vs GUI** : le CLI (`src/main.rs`) appelle les variantes non filtrées (`save_json`/`save_markdown`/`save_xml`) — comportement historique inchangé, toujours les 3 formats, aucun consentement à charger. Le GUI charge `ConsentConfig` courant et applique le filtrage.
+- Gestion d'erreur : une erreur d'écriture fichier fait échouer `collect_and_export` entier (`result.map_err(|e| e.to_string())?`, `commands.rs:113`) — c'est la seule des trois branches qui peut faire échouer la commande.
+
+## 3. Historique local SQLite
+
+Module `src/storage/mod.rs`. Sert à conserver un historique des collectes sur la machine, indépendamment des exports fichiers.
+
+- **Emplacement** : `tracker.db` dans le répertoire de données utilisateur standard (`directories::ProjectDirs::from("com","tracker","tracker").data_dir()`, `db_path()` l.20-29).
+- **Schéma** (`migrate()`, l.44-75) :
+  - `snapshots(id, machine_id, collected_at_unix, schema_version, raw_json)` — `raw_json` contient le rapport complet sérialisé.
+  - `hardware_summary(snapshot_id, cpu_architecture, cpu_core_count, ram_total_mb, disk_total_gb)`
+  - `software_summary(snapshot_id, os_name, os_version, host_name)`
+  - Index `idx_snapshots_machine_collected(machine_id, collected_at_unix)`.
+  - `SCHEMA_VERSION = 1` : uniquement `CREATE TABLE IF NOT EXISTS`, aucune migration incrémentale réelle pour l'instant.
+- **Écriture** : `record_snapshot(report)` (l.129-132), appelée en tout premier dans `collect_and_export` (`commands.rs:83-85`), **avant** le chargement du consentement.
+- **⚠️ Point de confidentialité important** : cette branche stocke **toujours le rapport complet, non filtré**, quel que soit le consentement de l'utilisateur (commentaire explicite `commands.rs:81-82`). Le filtrage `"np"` ne s'applique qu'aux exports fichiers et à l'envoi HTTP.
+- **Lecture** : commandes IPC `list_snapshots()` / `get_snapshot(id)` (`commands.rs:143-153`) exposées côté Rust mais **non consommées par le frontend actuel** — pas encore de bouton/UI pour parcourir cet historique.
+- **Sécurité** : toutes les requêtes utilisent des paramètres liés (`rusqlite::params!`) — pas de concaténation de chaînes, donc pas d'injection SQL possible.
+- **Gestion d'erreur** : `Result<_, String>`, échec seulement loggué (`eprintln!`, `commands.rs:84`), jamais bloquant pour la suite de la commande.
+
+## 4. Envoi HTTP vers un serveur distant
+
+Module `src/remote_export.rs`. **Le serveur externe n'existe pas encore** — ce module est le client, prêt à pointer vers n'importe quel endpoint acceptant un `POST` JSON.
+
+- **Configuration** (`RemoteExportConfig { enabled, url, auth_token }`, l.13-19) : persistée en JSON dans `remote_export.json`, dans le **même répertoire de configuration** que `consent.json` (réutilise `consent::config_dir()`, l.26). `auth_token` est prévu pour une authentification Bearer future mais n'est pas encore exposé dans l'UI (toujours `null` côté frontend).
+- **Envoi** (`send_report(config, json_body)`, l.60-87) :
+  - No-op immédiat si `enabled = false`.
+  - `reqwest::blocking::Client` avec timeout de **10 secondes**, une seule tentative (pas de retry/backoff — jugé prématuré tant qu'aucun serveur réel n'existe pour le valider).
+  - `POST` avec `Content-Type: application/json`, en-tête `Authorization: Bearer ...` ajouté seulement si `auth_token` est renseigné.
+  - Erreur si le serveur répond un statut non-2xx.
+- **Déclenchement** : en toute fin de `collect_and_export`, après l'écriture des fichiers (`commands.rs:117-135`). Charge la config (erreur de lecture volontairement avalée — une config illisible ne doit pas bloquer les fichiers déjà écrits), et si `enabled`, envoie **`report.to_json_pretty_filtered(&consent)`** — le même JSON filtré `"np"` que l'export fichier JSON, jamais la version complète.
+- **Commandes IPC** : `get_remote_export_config()` / `save_remote_export_config(config)` (`commands.rs:29-39`), calquées sur `get_consent`/`save_consent`.
+- **Frontend** : onglet "Paramètres" (`frontend/src/settings.js`), toggle d'activation + champ URL, ajouté à `TABS` dans `app.js`.
+- **Gestion d'erreur** : entièrement best-effort — toute erreur (config illisible, réseau indisponible, statut HTTP en erreur) est loguée via `eprintln!` et ne fait jamais échouer `collect_and_export` ni les autres branches.
+
+## 5. Comparatif des trois mécanismes
+
+| | Fichiers (JSON/MD/XML) | Historique SQLite | Envoi HTTP distant |
+|---|---|---|---|
+| Déclenchement | à chaque `collect_and_export`, selon `formats` demandés | systématique, à chaque `collect_and_export` | automatique si activé dans les Paramètres |
+| Filtrage par consentement | oui (GUI) / non (CLI) | **jamais** (toujours complet) | oui |
+| Peut faire échouer la commande | oui | non (loggué) | non (loggué) |
+| Configuration utilisateur | dossier de sortie (`output_dir`) | aucune (chemin fixe) | URL + activation (onglet Paramètres) |
+| Stockage | fichiers sur disque | `tracker.db` (SQLite) | aucun stockage local, transmis au serveur distant |
+
+## 6. Sécurité
+
+- **SQL** : requêtes systématiquement paramétrées (`rusqlite::params!`) — pas d'injection possible.
+- **Stockage en clair** : `consent.json`, `remote_export.json` et `tracker.db` sont tous stockés sans chiffrement sur le disque local — cohérent entre les trois, mais à garder en tête si des données sensibles (mode de consentement "Maximum") transitent par l'historique SQLite non filtré.
+- **HTTP** : timeout de 10s pour éviter un blocage indéfini si le serveur est injoignable ; pas de retry, pas de certificate pinning particulier (TLS géré par `rustls` via le feature `rustls-tls` de `reqwest`).
+- **Auth** : `auth_token` existe côté modèle mais n'est pas exposé dans l'UI v1 — aucun serveur réel n'implémentant d'authentification à ce jour.
+
+## 7. Tests
+
+- `tests/export_filtering.rs` : couverture exhaustive du filtrage `"np"` pour les exports fichiers (JSON/Markdown/XML), plus `remote_export_sends_the_same_filtered_json_as_file_exports` qui vérifie que le JSON réellement transmis à `send_report` respecte le même filtrage que les fichiers (via un serveur HTTP jetable in-process).
+- Tests unitaires `src/storage/mod.rs` : round-trip insertion/listing, récupération JSON par id, tri par date, cas id introuvable.
+- Tests unitaires `src/remote_export.rs` : round-trip config load/save, no-op quand désactivé, POST correctement envoyé et reçu (serveur jetable in-process), échec propre sur statut 5xx.

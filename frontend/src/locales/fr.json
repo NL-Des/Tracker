@@ -93,5 +93,12 @@
   "software.field.ssh_keys": "Clés SSH",
   "software.field.security_status": "État de la sécurité",
   "network.title": "Réseau",
-  "network.coming_soon": "À venir."
+  "network.coming_soon": "À venir.",
+  "settings.title": "Paramètres",
+  "settings.subtitle": "Configurez l'envoi automatique des rapports vers un serveur distant.",
+  "settings.remote.enabled": "Activer l'export HTTP automatique",
+  "settings.remote.url": "URL du serveur (POST JSON)",
+  "settings.save": "Enregistrer",
+  "settings.saved": "Préférences enregistrées.",
+  "settings.error": "Erreur lors de l'enregistrement :"
 }

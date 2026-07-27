@@ -13,6 +13,11 @@ fn main() {
 
     let report = SystemReport::collect();
 
+    match tracker::storage::record_snapshot(&report) {
+        Ok(_) => println!("Snapshot enregistré dans l'historique local"),
+        Err(e) => eprintln!("Erreur lors de l'enregistrement en base : {e}"),
+    }
+
     let json_path = Path::new("tracker_report.json");
     match report.save_json(json_path) {
         Ok(()) => println!("Rapport JSON exporté vers {}", json_path.display()),

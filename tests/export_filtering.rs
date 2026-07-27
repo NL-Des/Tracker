@@ -1,6 +1,9 @@
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::TcpListener;
 use std::sync::OnceLock;
 use tracker::consent::{ConsentConfig, ConsentPreset};
 use tracker::hardware::HARDWARE_FIELDS;
+use tracker::remote_export::{send_report, RemoteExportConfig};
 use tracker::software::SOFTWARE_FIELDS;
 use tracker::{markdown, xml, SystemReport};
 
@@ -178,4 +181,57 @@ fn xml_filters_browsers_when_disabled() {
     let mut consent = ConsentPreset::Maximum.to_config();
     consent.browsers = false;
     assert!(xml::generate(report, &consent).contains("<browsers>np</browsers>"));
+}
+
+// Serveur HTTP jetable in-process (mêmes contraintes que
+// `remote_export::tests` : pas de nouvelle dépendance de mock HTTP).
+fn spawn_one_shot_server() -> (String, std::thread::JoinHandle<String>) {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let handle = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut reader = BufReader::new(stream.try_clone().unwrap());
+        let mut request_line = String::new();
+        reader.read_line(&mut request_line).unwrap();
+
+        let mut content_length = 0usize;
+        loop {
+            let mut header_line = String::new();
+            reader.read_line(&mut header_line).unwrap();
+            if header_line == "\r\n" || header_line.is_empty() {
+                break;
+            }
+            if let Some(v) = header_line.to_lowercase().strip_prefix("content-length:") {
+                content_length = v.trim().parse().unwrap_or(0);
+            }
+        }
+        let mut body = vec![0u8; content_length];
+        reader.read_exact(&mut body).unwrap();
+
+        stream
+            .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
+            .unwrap();
+        String::from_utf8_lossy(&body).to_string()
+    });
+    (format!("http://{addr}"), handle)
+}
+
+#[test]
+fn remote_export_sends_the_same_filtered_json_as_file_exports() {
+    let report = report();
+    let consent = with_hardware_field_disabled("cpu");
+    let expected_json = report.to_json_pretty_filtered(&consent).unwrap();
+
+    let (url, handle) = spawn_one_shot_server();
+    let config = RemoteExportConfig { enabled: true, url, auth_token: None };
+    send_report(&config, &expected_json).unwrap();
+    let received_body = handle.join().unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&received_body).unwrap();
+    assert_eq!(
+        value["hardware"]["cpu"],
+        serde_json::Value::String("np".to_string()),
+        "le rapport envoyé au serveur distant doit respecter le même filtrage \"np\" que les exports fichiers"
+    );
+    assert_eq!(received_body, expected_json);
 }

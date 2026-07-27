@@ -8,3 +8,6 @@ export const listHardwareFields = () => invoke("list_hardware_fields");
 export const listSoftwareFields = () => invoke("list_software_fields");
 export const collectAndExport = (formats, outputDir) =>
   invoke("collect_and_export", { formats, outputDir });
+export const getRemoteExportConfig = () => invoke("get_remote_export_config");
+export const saveRemoteExportConfig = (config) =>
+  invoke("save_remote_export_config", { config });
