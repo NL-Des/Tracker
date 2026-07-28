@@ -152,6 +152,22 @@ pub fn get_snapshot(id: i64) -> Result<Option<String>, String> {
     tracker::storage::get_snapshot_json(&conn, id)
 }
 
+#[tauri::command]
+pub fn open_storage_location() -> Result<(), String> {
+    let path = tracker::storage::db_path().map_err(|e| e.to_string())?;
+    let dir = path.parent().ok_or("chemin de la base invalide")?;
+
+    #[cfg(target_os = "linux")]
+    let status = std::process::Command::new("xdg-open").arg(dir).status();
+    #[cfg(target_os = "macos")]
+    let status = std::process::Command::new("open").arg(dir).status();
+    #[cfg(target_os = "windows")]
+    let status = std::process::Command::new("explorer").arg(dir).status();
+
+    status.map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

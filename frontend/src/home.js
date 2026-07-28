@@ -1,5 +1,6 @@
 import { t, getLocale, setLocale } from "./i18n.js";
 import { collectAndExport } from "./api.js";
+import { renderScanHistory } from "./history.js";
 
 export function renderHome(root) {
   root.innerHTML = `
@@ -12,6 +13,7 @@ export function renderHome(root) {
       <p id="home-subtitle"></p>
       <button id="home-collect"></button>
       <p id="home-collect-status"></p>
+      <div id="home-history"></div>
     </main>
   `;
 
@@ -20,12 +22,16 @@ export function renderHome(root) {
   const subtitle = root.querySelector("#home-subtitle");
   const collectButton = root.querySelector("#home-collect");
   const status = root.querySelector("#home-collect-status");
+  const historyContainer = root.querySelector("#home-history");
+
+  const history = renderScanHistory(historyContainer);
 
   function applyTranslations() {
     localeSelect.value = getLocale();
     title.textContent = t("home.title");
     subtitle.textContent = t("home.subtitle");
     collectButton.textContent = t("home.collect");
+    history.applyTranslations();
   }
 
   applyTranslations();
@@ -43,6 +49,7 @@ export function renderHome(root) {
       // courant du processus (pas de sélecteur de dossier pour ce premier jet).
       const paths = await collectAndExport(["json", "markdown", "xml"], ".");
       status.textContent = `${t("home.collect.success")} ${paths.join(", ")}`;
+      await history.refresh();
     } catch (e) {
       status.textContent = `${t("home.collect.error")} ${e}`;
     } finally {

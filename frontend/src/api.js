@@ -11,3 +11,5 @@ export const collectAndExport = (formats, outputDir) =>
 export const getRemoteExportConfig = () => invoke("get_remote_export_config");
 export const saveRemoteExportConfig = (config) =>
   invoke("save_remote_export_config", { config });
+export const listSnapshots = () => invoke("list_snapshots");
+export const openStorageLocation = () => invoke("open_storage_location");

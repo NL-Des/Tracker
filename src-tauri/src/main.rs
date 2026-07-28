@@ -16,6 +16,7 @@ fn main() {
             commands::collect_and_export,
             commands::list_snapshots,
             commands::get_snapshot,
+            commands::open_storage_location,
         ])
         .run(tauri::generate_context!())
         .expect("erreur lors du lancement de l'application tauri");
