@@ -36,6 +36,7 @@ Matériel (CPU, RAM, disques, réseau, GPU, écrans, batterie, capteurs, Bluetoo
 - Fonctionnement du backend (modules de collecte, consentement, filtrage à l'export) : `README_backend_data_harvest.md`
 - Fonctionnement du client GUI (onglets, IPC, flux de consentement) : `README_frontend_client.md`
 - Comment les données sont envoyées/exportées (fichiers, historique SQLite, envoi HTTP distant) : `README_data_how_they_are_send.md`
+- Serveur de simulation Docker pour tester l'envoi HTTP distant sans serveur de réception réel : `README_server_test_with_docker.md`
 
 ## Consulter l'historique local (SQLite)
 

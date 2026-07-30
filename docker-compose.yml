@@ -1,0 +1,12 @@
+services:
+  mock-server:
+    build:
+      context: .
+      dockerfile: mock-server/Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./mock-server/data:/data
+    environment:
+      MOCK_SERVER_TOKEN: ${MOCK_SERVER_TOKEN:-changeme}
+      RUST_LOG: info

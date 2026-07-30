@@ -13,6 +13,7 @@ export function renderHome(root) {
       <p id="home-subtitle"></p>
       <button id="home-collect"></button>
       <p id="home-collect-status"></p>
+      <p id="home-remote-status"></p>
       <div id="home-history"></div>
     </main>
   `;
@@ -22,6 +23,7 @@ export function renderHome(root) {
   const subtitle = root.querySelector("#home-subtitle");
   const collectButton = root.querySelector("#home-collect");
   const status = root.querySelector("#home-collect-status");
+  const remoteStatus = root.querySelector("#home-remote-status");
   const historyContainer = root.querySelector("#home-history");
 
   const history = renderScanHistory(historyContainer);
@@ -44,11 +46,17 @@ export function renderHome(root) {
   collectButton.addEventListener("click", async () => {
     collectButton.disabled = true;
     status.textContent = t("home.collecting");
+    remoteStatus.textContent = "";
     try {
       // "." reproduit le comportement du CLI : écriture dans le répertoire
       // courant du processus (pas de sélecteur de dossier pour ce premier jet).
-      const paths = await collectAndExport(["json", "markdown", "xml"], ".");
-      status.textContent = `${t("home.collect.success")} ${paths.join(", ")}`;
+      const result = await collectAndExport(["json", "markdown", "xml"], ".");
+      status.textContent = `${t("home.collect.success")} ${result.written.join(", ")}`;
+      if (result.remote_export) {
+        remoteStatus.textContent = result.remote_export.success
+          ? t("home.remote.success")
+          : `${t("home.remote.error")} ${result.remote_export.error}`;
+      }
       await history.refresh();
     } catch (e) {
       status.textContent = `${t("home.collect.error")} ${e}`;

@@ -4,6 +4,9 @@ use std::time::Duration;
 
 const REMOTE_EXPORT_FILE_NAME: &str = "remote_export.json";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+const MAX_ATTEMPTS: u32 = 3;
+const RETRY_BACKOFFS: [Duration; MAX_ATTEMPTS as usize - 1] =
+    [Duration::from_millis(300), Duration::from_millis(600)];
 
 /// Config de l'export HTTP automatique déclenché après chaque collecte.
 /// `auth_token` anticipe une auth Bearer future côté serveur externe, même
@@ -52,11 +55,10 @@ pub fn save(config: &RemoteExportConfig) -> std::io::Result<()> {
 }
 
 /// Envoie `json_body` en POST vers `config.url`. No-op si `enabled` est
-/// faux. Une seule tentative, aucun retry : le serveur cible n'existe pas
-/// encore et un mécanisme de retry/backoff ne pourrait pas être validé
-/// contre un vrai comportement serveur — on garde ça simple pour la v1 et
-/// on laisse l'appelant logguer l'échec sans jamais faire échouer la
-/// collecte (même philosophie que `storage::record_snapshot`).
+/// faux. Retente jusqu'à `MAX_ATTEMPTS` fois avec un court backoff, mais
+/// uniquement sur erreur réseau/timeout ou statut 5xx : un 4xx (ex. 401
+/// d'authentification invalide) est définitif et retenter n'aiderait pas,
+/// donc on abandonne immédiatement dans ce cas.
 pub fn send_report(config: &RemoteExportConfig, json_body: &str) -> Result<(), String> {
     if !config.enabled {
         return Ok(());
@@ -70,20 +72,34 @@ pub fn send_report(config: &RemoteExportConfig, json_body: &str) -> Result<(), S
         .build()
         .map_err(|e| e.to_string())?;
 
-    let mut request = client
-        .post(&config.url)
-        .header("Content-Type", "application/json")
-        .body(json_body.to_string());
+    let mut last_error = String::new();
+    for attempt in 0..MAX_ATTEMPTS {
+        let mut request = client
+            .post(&config.url)
+            .header("Content-Type", "application/json")
+            .body(json_body.to_string());
 
-    if let Some(token) = config.auth_token.as_deref().filter(|t| !t.is_empty()) {
-        request = request.bearer_auth(token);
-    }
+        if let Some(token) = config.auth_token.as_deref().filter(|t| !t.is_empty()) {
+            request = request.bearer_auth(token);
+        }
 
-    let response = request.send().map_err(|e| e.to_string())?;
-    if !response.status().is_success() {
-        return Err(format!("le serveur distant a répondu {}", response.status()));
+        match request.send() {
+            Ok(response) if response.status().is_success() => return Ok(()),
+            Ok(response) => {
+                let status = response.status();
+                last_error = format!("le serveur distant a répondu {status}");
+                if !status.is_server_error() {
+                    return Err(last_error);
+                }
+            }
+            Err(e) => last_error = e.to_string(),
+        }
+
+        if let Some(backoff) = RETRY_BACKOFFS.get(attempt as usize) {
+            std::thread::sleep(*backoff);
+        }
     }
-    Ok(())
+    Err(last_error)
 }
 
 #[cfg(test)]
@@ -180,5 +196,70 @@ mod tests {
         let result = send_report(&config, "{}");
         handle.join().unwrap();
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn send_report_does_not_retry_on_client_error_status() {
+        let (url, handle) =
+            spawn_one_shot_server("HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n");
+        let config = RemoteExportConfig { enabled: true, url, auth_token: None };
+        let result = send_report(&config, "{}");
+        // Une seule requête est attendue : le serveur jetable n'accepte
+        // qu'une connexion, donc une deuxième tentative ferait planter le
+        // thread serveur (accept() bloquerait indéfiniment) et ce test
+        // resterait bloqué au lieu d'échouer proprement.
+        handle.join().unwrap();
+        assert!(result.is_err());
+    }
+
+    // Serveur jetable qui répond 500 sur ses `failures` premières connexions
+    // puis 200 sur la suivante, pour vérifier que `send_report` retente et
+    // finit par réussir.
+    fn spawn_flaky_server(failures: usize) -> (String, std::thread::JoinHandle<usize>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let handle = std::thread::spawn(move || {
+            let mut requests_seen = 0usize;
+            for (i, stream) in listener.incoming().enumerate().take(failures + 1) {
+                let mut stream = stream.unwrap();
+                let mut reader = BufReader::new(stream.try_clone().unwrap());
+                let mut request_line = String::new();
+                reader.read_line(&mut request_line).unwrap();
+
+                let mut content_length = 0usize;
+                loop {
+                    let mut header_line = String::new();
+                    reader.read_line(&mut header_line).unwrap();
+                    if header_line == "\r\n" || header_line.is_empty() {
+                        break;
+                    }
+                    if let Some(v) = header_line.to_lowercase().strip_prefix("content-length:") {
+                        content_length = v.trim().parse().unwrap_or(0);
+                    }
+                }
+                let mut body = vec![0u8; content_length];
+                reader.read_exact(&mut body).unwrap();
+                requests_seen += 1;
+
+                let status_line = if i < failures {
+                    "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n"
+                } else {
+                    "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"
+                };
+                stream.write_all(status_line.as_bytes()).unwrap();
+            }
+            requests_seen
+        });
+        (format!("http://{addr}"), handle)
+    }
+
+    #[test]
+    fn send_report_retries_on_server_error_and_eventually_succeeds() {
+        let (url, handle) = spawn_flaky_server(1);
+        let config = RemoteExportConfig { enabled: true, url, auth_token: None };
+        let result = send_report(&config, "{}");
+        let requests_seen = handle.join().unwrap();
+        assert!(result.is_ok());
+        assert_eq!(requests_seen, 2);
     }
 }

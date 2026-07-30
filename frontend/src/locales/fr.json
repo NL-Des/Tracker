@@ -6,6 +6,8 @@
   "home.collecting": "Collecte en cours...",
   "home.collect.success": "Rapports générés :",
   "home.collect.error": "Erreur lors de la collecte :",
+  "home.remote.success": "Envoyé au serveur distant ✓",
+  "home.remote.error": "Échec de l'envoi au serveur distant :",
   "history.title": "Historique des Scans",
   "history.open_file": "Ouvrir le fichier",
   "history.column.id": "ID",
@@ -105,6 +107,7 @@
   "settings.subtitle": "Configurez l'envoi automatique des rapports vers un serveur distant.",
   "settings.remote.enabled": "Activer l'export HTTP automatique",
   "settings.remote.url": "URL du serveur (POST JSON)",
+  "settings.remote.token": "Jeton d'authentification (optionnel)",
   "settings.save": "Enregistrer",
   "settings.saved": "Préférences enregistrées.",
   "settings.error": "Erreur lors de l'enregistrement :"

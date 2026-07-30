@@ -1,7 +1,23 @@
+use serde::Serialize;
 use std::path::PathBuf;
 use tracker::consent::{ConsentConfig, ConsentPreset, HardwareConsent, SoftwareConsent};
 use tracker::remote_export::RemoteExportConfig;
 use tracker::SystemReport;
+
+/// Résultat de la branche d'envoi HTTP distant, renvoyé au frontend en plus
+/// du log `eprintln!` existant. `None` quand l'envoi distant est désactivé
+/// (pas de tentative).
+#[derive(Serialize)]
+pub struct RemoteExportOutcome {
+    pub success: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct CollectAndExportResult {
+    pub written: Vec<String>,
+    pub remote_export: Option<RemoteExportOutcome>,
+}
 
 #[tauri::command]
 pub fn set_locale(locale: String) {
@@ -72,7 +88,7 @@ pub fn get_preset(name: String) -> Result<ConsentConfig, String> {
 pub async fn collect_and_export(
     formats: Vec<String>,
     output_dir: String,
-) -> Result<Vec<String>, String> {
+) -> Result<CollectAndExportResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
         // `SystemReport::collect()` dort volontairement (échantillonnage CPU) —
         // toujours l'exécuter hors du thread de l'event loop de la webview.
@@ -121,20 +137,27 @@ pub async fn collect_and_export(
         // `remote_export.json` : une config distante illisible ne doit pas
         // bloquer les exports fichiers déjà écrits.
         let remote_config = tracker::remote_export::load().ok().flatten().unwrap_or_default();
-        if remote_config.enabled {
-            match report.to_json_pretty_filtered(&consent) {
-                Ok(json_body) => {
-                    if let Err(e) = tracker::remote_export::send_report(&remote_config, &json_body) {
+        let remote_export = if remote_config.enabled {
+            Some(match report.to_json_pretty_filtered(&consent) {
+                Ok(json_body) => match tracker::remote_export::send_report(&remote_config, &json_body) {
+                    Ok(()) => RemoteExportOutcome { success: true, error: None },
+                    Err(e) => {
                         eprintln!("Erreur lors de l'envoi du rapport au serveur distant : {e}");
+                        RemoteExportOutcome { success: false, error: Some(e) }
                     }
+                },
+                Err(e) => {
+                    eprintln!(
+                        "Erreur lors de la sérialisation du rapport pour l'export distant : {e}"
+                    );
+                    RemoteExportOutcome { success: false, error: Some(e.to_string()) }
                 }
-                Err(e) => eprintln!(
-                    "Erreur lors de la sérialisation du rapport pour l'export distant : {e}"
-                ),
-            }
-        }
+            })
+        } else {
+            None
+        };
 
-        Ok(written)
+        Ok(CollectAndExportResult { written, remote_export })
     })
     .await
     .map_err(|e| e.to_string())?
