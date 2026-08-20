@@ -1,18 +1,25 @@
 # Tracker
 
+**Objectifs et motivations**
+
 Tracker est un projet qui avait deux objectifs majeurs :
 
 -Découvrir et comprendre les données que l'on peut obtenir d'un ordinateur sans droits administrateurs.
 
 -Apprendre à concevoir un projet de bout en bout avec l'IA. Concevoir, analyser le code soumis, compartimenter pour réduire la dispersion de l'attention de l'IA, construire une méthodologie de travail claire et efficace. Mais sans agents, pour étudier le comportement de l'IA et comprendre les limites parfois floues de ces actions.
 
-**Bilan :**
+***Bilan :***
 
--J'ai pu observer qu'un très grands nombre d'informations logiciels et matérielles sont disponibles et accessibles avec une grande facilité. Cela amène beaucoup de questions sur la sécurité et la circulation des informations. Mais cela ouvre aussi des portes pour développer des idées d'améliorations de ces éléments découverts.
+-J'ai pu observer qu'un très grands nombre d'informations logicielles et matérielles sont disponibles et accessibles avec une grande facilité. Cela amène beaucoup de questions sur la sécurité et la circulation des informations. Mais cela ouvre aussi des portes pour développer des idées d'améliorations de ces éléments découverts.
 J'ai pu apprendre et explorer beaucoup d'éléments qui m'étaient il y a peu encore inconnus. C'est une riche expérience pour s'ouvrir l'esprit sur de multiples champs techniques matériels et logiciels.
 
 -Au niveau de la méthodologie de travail, j'ai pu explorer en profondeur ma manière de travailler avec l'IA. Comment bien rédiger les questions, les ordres et demandes d'informations. Quand renouveler les discussions, comment lui transmettre les informations, pourquoi communiquer au travers de documents en markdown plutôt qu'au travers de channels de discussions,... C'est un vaste chantier qui met en évidence la nécessité d'une maîtrise de la langue et du sujet technique. Car ces deux éléments offrent un pont de communication clair et efficace, pour aborder des sujets techniques complexes ou encore conceptuels, avec recul et critique.
 L'accumulation des lignes des codes, des demandes et des notions, oblige l'utilisateur à réfléchir si il désire un résultat fonctionnel. 
+
+Il faut anticiper les actions de l'IA, compartimenter le travail et l'information, structurer le projet, ne pas hésiter à retourner en arrière, et vérifier régulièrement le travail par des tests et des analyses. Même si ces derniers éléments sont fais par l'IA. Car cela est vite révélateur d'erreurs, de conceptions par l'utilisateur (moi) ou de développement (l'IA).
+L'IA m'a permis de réaliser ce projet rapidement à côté de mes projets de formations, alors que je débute en Rust. Cela offre de nombreuses opportunités, mais demande un profonds apprentissage pour éviter l'inévitable plafonds de verre si l'on se laisse porter par l'IA. Il est de la responsabilité de chacun d'entretenir régulièrement ces compétences.
+
+Ce projet est disponible pour toute personne le désirant, pour un usage non commercial ou liés à des prestations payantes. Soyez averti qu'il est un projet expérimental, donc la sécurité n'est pas au point pour un usage autre que dans un cadre d'études d'informations non confidentielles. Si vous désirez tout de même l'utiliser dans un cadre plus sérieux, je suis disponible pour répondre à vos questions et vous aider. 
 
 **Définition :**
 
