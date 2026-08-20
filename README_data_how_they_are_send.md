@@ -45,28 +45,31 @@ Module `src/storage/mod.rs`. Sert à conserver un historique des collectes sur l
 
 ## 4. Envoi HTTP vers un serveur distant
 
-Module `src/remote_export.rs`. **Aucun serveur de réception définitif n'existe encore** — mais un serveur de simulation Docker permet de valider ce client en conditions réelles, voir `README_server_test_with_docker.md`.
+Module `src/remote_export.rs`. **Aucun serveur de réception définitif n'existe encore** — seul le client est implémenté.
 
-- **Configuration** (`RemoteExportConfig { enabled, url, auth_token }`, l.13-19) : persistée en JSON dans `remote_export.json`, dans le **même répertoire de configuration** que `consent.json` (réutilise `consent::config_dir()`, l.26). `auth_token` sert à une authentification Bearer et est désormais **exposé dans l'UI** (champ dédié dans l'onglet Paramètres, `frontend/src/settings.js`).
+- **Configuration** (`RemoteExportConfig { enabled, url, auth_token }`, l.13-19) : persistée en JSON dans `remote_export.json`, dans le **même répertoire de configuration** que `consent.json` (réutilise `consent::config_dir()`, l.26). Ce fichier est **partagé entre le CLI et le GUI** : le configurer depuis l'un ou l'autre a le même effet.
+  - **GUI** : onglet Paramètres (`frontend/src/settings.js`) — toggle d'activation, champ URL, champ token.
+  - **CLI** : arguments `--remote-url <URL>` (active l'envoi et fixe l'URL), `--remote-token <TOKEN>` (optionnel, avec `--remote-url`), `--remote-disable` (désactive sans perdre l'URL enregistrée). Voir `src/main.rs`.
 - **Envoi** (`send_report(config, json_body)`) :
   - No-op immédiat si `enabled = false`.
   - `reqwest::blocking::Client` avec timeout de **10 secondes** par tentative.
   - **Retry** : jusqu'à 3 tentatives avec un court backoff (300 ms puis 600 ms), mais **uniquement** sur erreur réseau/timeout ou statut `5xx`. Un statut `4xx` (ex. `401` d'authentification invalide) est considéré définitif et n'est **jamais retenté**.
   - `POST` avec `Content-Type: application/json`, en-tête `Authorization: Bearer ...` ajouté seulement si `auth_token` est renseigné.
   - Erreur si toutes les tentatives échouent ou si le serveur répond un statut non-2xx définitif.
-- **Déclenchement** : en toute fin de `collect_and_export`, après l'écriture des fichiers (`commands.rs`). Charge la config (erreur de lecture volontairement avalée — une config illisible ne doit pas bloquer les fichiers déjà écrits), et si `enabled`, envoie **`report.to_json_pretty_filtered(&consent)`** — le même JSON filtré `"np"` que l'export fichier JSON, jamais la version complète.
-- **Commandes IPC** : `get_remote_export_config()` / `save_remote_export_config(config)` (`commands.rs`), calquées sur `get_consent`/`save_consent`.
+- **Déclenchement GUI** : en toute fin de `collect_and_export`, après l'écriture des fichiers (`commands.rs`). Charge la config (erreur de lecture volontairement avalée — une config illisible ne doit pas bloquer les fichiers déjà écrits), et si `enabled`, envoie **`report.to_json_pretty_filtered(&consent)`** — le même JSON filtré `"np"` que l'export fichier JSON, jamais la version complète.
+- **Déclenchement CLI** : après l'écriture des fichiers dans `src/main.rs`. Charge la même config `remote_export.json` et, si `enabled`, envoie `report.to_json_pretty()` — le CLI n'ayant pas de notion de consentement, la version complète (cohérent avec le comportement non filtré des exports fichiers CLI).
+- **Commandes IPC** (GUI) : `get_remote_export_config()` / `save_remote_export_config(config)` (`commands.rs`), calquées sur `get_consent`/`save_consent`.
 - **Frontend** : onglet "Paramètres" (`frontend/src/settings.js`), toggle d'activation + champ URL + champ token, ajouté à `TABS` dans `app.js`.
-- **Gestion d'erreur** : best-effort au niveau de la commande — un échec de l'envoi distant (config illisible, réseau indisponible, statut HTTP en erreur après retries) ne fait jamais échouer `collect_and_export` ni les autres branches, et reste loggué via `eprintln!`. Mais contrairement à l'historique SQLite, le résultat est désormais **remonté au frontend** : `collect_and_export` renvoie une structure `CollectAndExportResult { written, remote_export: Option<{ success, error }> }` (`commands.rs`), affichée dans l'écran d'accueil (`frontend/src/home.js`) juste après le message d'export fichiers.
+- **Gestion d'erreur** : best-effort — un échec de l'envoi distant (config illisible, réseau indisponible, statut HTTP en erreur après retries) ne fait jamais échouer l'export fichiers déjà écrit, et reste loggué via `eprintln!`. Côté GUI, le résultat est en plus **remonté au frontend** : `collect_and_export` renvoie une structure `CollectAndExportResult { written, remote_export: Option<{ success, error }> }` (`commands.rs`), affichée dans l'écran d'accueil (`frontend/src/home.js`) juste après le message d'export fichiers. Côté CLI, le résultat est simplement affiché sur stdout/stderr.
 
 ## 5. Comparatif des trois mécanismes
 
 | | Fichiers (JSON/MD/XML) | Historique SQLite | Envoi HTTP distant |
 |---|---|---|---|
-| Déclenchement | à chaque `collect_and_export`, selon `formats` demandés | systématique, à chaque `collect_and_export` | automatique si activé dans les Paramètres |
-| Filtrage par consentement | oui (GUI) / non (CLI) | **jamais** (toujours complet) | oui |
+| Déclenchement | à chaque collecte, selon les formats demandés | systématique, à chaque collecte GUI | automatique si activé (config partagée CLI/GUI) |
+| Filtrage par consentement | oui (GUI) / non (CLI) | **jamais** (toujours complet) | oui (GUI) / non (CLI) |
 | Peut faire échouer la commande | oui | non (loggué) | non (loggué) |
-| Configuration utilisateur | dossier de sortie (`output_dir`) | aucune (chemin fixe) | URL + activation (onglet Paramètres) |
+| Configuration utilisateur | dossier de sortie (`output_dir`) | aucune (chemin fixe) | URL + activation (onglet Paramètres GUI, ou `--remote-url`/`--remote-token`/`--remote-disable` en CLI) |
 | Stockage | fichiers sur disque | `tracker.db` (SQLite) | aucun stockage local, transmis au serveur distant |
 
 ## 6. Sécurité
@@ -74,11 +77,11 @@ Module `src/remote_export.rs`. **Aucun serveur de réception définitif n'existe
 - **SQL** : requêtes systématiquement paramétrées (`rusqlite::params!`) — pas d'injection possible.
 - **Stockage en clair** : `consent.json`, `remote_export.json` et `tracker.db` sont tous stockés sans chiffrement sur le disque local — cohérent entre les trois, mais à garder en tête si des données sensibles (mode de consentement "Maximum") transitent par l'historique SQLite non filtré.
 - **HTTP** : timeout de 10s par tentative pour éviter un blocage indéfini si le serveur est injoignable ; jusqu'à 3 tentatives avec backoff sur erreur réseau/5xx, **aucun retry sur 4xx** (évite par exemple de marteler un serveur avec un token invalide) ; pas de certificate pinning particulier (TLS géré par `rustls` via le feature `rustls-tls` de `reqwest`).
-- **Auth** : `auth_token` existe côté modèle et est désormais configurable depuis l'UI. Aucun vrai serveur de réception n'implémente encore d'authentification à ce jour ; le serveur de simulation Docker (`README_server_test_with_docker.md`) sert à valider ce comportement (401 si absent/invalide).
+- **Auth** : `auth_token` existe côté modèle et est configurable depuis l'UI ou le CLI. Aucun vrai serveur de réception n'implémente encore d'authentification à ce jour.
 
 ## 7. Tests
 
 - `tests/export_filtering.rs` : couverture exhaustive du filtrage `"np"` pour les exports fichiers (JSON/Markdown/XML), plus `remote_export_sends_the_same_filtered_json_as_file_exports` qui vérifie que le JSON réellement transmis à `send_report` respecte le même filtrage que les fichiers (via un serveur HTTP jetable in-process).
 - Tests unitaires `src/storage/mod.rs` : round-trip insertion/listing, récupération JSON par id, tri par date, cas id introuvable.
 - Tests unitaires `src/remote_export.rs` : round-trip config load/save, no-op quand désactivé, POST correctement envoyé et reçu (serveur jetable in-process), échec propre sur statut 5xx, **pas de retry sur statut 4xx** (`send_report_does_not_retry_on_client_error_status`), **retry réussi après échecs transitoires** (`send_report_retries_on_server_error_and_eventually_succeeds`).
-- Validation manuelle de bout en bout contre un vrai serveur HTTP (conteneurisé) : voir `README_server_test_with_docker.md`.
+- Validation manuelle de bout en bout : pointer `--remote-url`/l'onglet Paramètres vers un serveur HTTP local jetable et vérifier la réception.

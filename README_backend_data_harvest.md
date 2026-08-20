@@ -6,7 +6,7 @@ Ce document explique le fonctionnement interne du crate Rust `tracker` : comment
 
 Le projet est un workspace Cargo à deux membres (`Cargo.toml` racine, `members = [".", "src-tauri"]`) :
 
-- **`tracker`** (racine) : à la fois une bibliothèque (`src/lib.rs`, package Cargo `[lib]`) et un binaire CLI (`src/main.rs`, `[[bin]]`). Toute la logique de collecte, de modélisation et d'export vit dans la lib ; le binaire CLI ne fait qu'appeler `SystemReport::collect()` puis exporter en JSON/Markdown/XML, sans filtrage.
+- **`tracker`** (racine) : à la fois une bibliothèque (`src/lib.rs`, package Cargo `[lib]`) et un binaire CLI (`src/main.rs`, `[[bin]]`). Toute la logique de collecte, de modélisation et d'export vit dans la lib ; le binaire CLI appelle `SystemReport::collect()` puis exporte en JSON/Markdown/XML, sans filtrage. Il peut aussi configurer et déclencher l'envoi distant via `--remote-url`/`--remote-token`/`--remote-disable` (config `remote_export.json` partagée avec le GUI — détail dans `README_data_how_they_are_send.md`).
 - **`src-tauri`** (package `tracker-gui`) : dépend de `tracker` via `path = ".."` et l'utilise comme bibliothèque pour construire le client graphique (voir `README_frontend_client.md`).
 
 `src/lib.rs` expose 9 modules publics : `browsers`, `command`, `consent`, `hardware`, `markdown`, `os_dispatch`, `report`, `software`, `xml`, et ré-exporte `SystemReport` (`pub use report::SystemReport`).

@@ -4,4 +4,6 @@ tracker_report.md
 tracker_report.xml
 frontend/node_modules/
 frontend/dist/
-mock-server/data/
+src-tauri/tracker_report.json
+src-tauri/tracker_report.md
+src-tauri/tracker_report.xml

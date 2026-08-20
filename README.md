@@ -1,5 +1,21 @@
 # Tracker
 
+Tracker est un projet qui avait deux objectifs majeurs :
+
+-Découvrir et comprendre les données que l'on peut obtenir d'un ordinateur sans droits administrateurs.
+
+-Apprendre à concevoir un projet de bout en bout avec l'IA. Concevoir, analyser le code soumis, compartimenter pour réduire la dispersion de l'attention de l'IA, construire une méthodologie de travail claire et efficace. Mais sans agents, pour étudier le comportement de l'IA et comprendre les limites parfois floues de ces actions.
+
+**Bilan :**
+
+-J'ai pu observer qu'un très grands nombre d'informations logiciels et matérielles sont disponibles et accessibles avec une grande facilité. Cela amène beaucoup de questions sur la sécurité et la circulation des informations. Mais cela ouvre aussi des portes pour développer des idées d'améliorations de ces éléments découverts.
+J'ai pu apprendre et explorer beaucoup d'éléments qui m'étaient il y a peu encore inconnus. C'est une riche expérience pour s'ouvrir l'esprit sur de multiples champs techniques matériels et logiciels.
+
+-Au niveau de la méthodologie de travail, j'ai pu explorer en profondeur ma manière de travailler avec l'IA. Comment bien rédiger les questions, les ordres et demandes d'informations. Quand renouveler les discussions, comment lui transmettre les informations, pourquoi communiquer au travers de documents en markdown plutôt qu'au travers de channels de discussions,... C'est un vaste chantier qui met en évidence la nécessité d'une maîtrise de la langue et du sujet technique. Car ces deux éléments offrent un pont de communication clair et efficace, pour aborder des sujets techniques complexes ou encore conceptuels, avec recul et critique.
+L'accumulation des lignes des codes, des demandes et des notions, oblige l'utilisateur à réfléchir si il désire un résultat fonctionnel. 
+
+**Définition :**
+
 Outil qui collecte des informations matérielles et logicielles sur la machine locale (Linux, macOS, Windows) et les exporte en JSON/Markdown/XML. Le projet a deux faces :
 
 - **CLI** (`tracker`, racine du repo) : collecte systématique et export non filtré, sans interaction.
@@ -17,12 +33,21 @@ cargo build --release
 cargo run --release
 ```
 
-Génère trois fichiers dans le répertoire courant (`tracker_report.json`, `.md`, `.xml`). Aucun argument de ligne de commande : toutes les catégories sont collectées et les trois formats sont toujours générés, sans filtrage.
+Génère trois fichiers dans le répertoire courant (`tracker_report.json`, `.md`, `.xml`) : toutes les catégories sont collectées et les trois formats sont toujours générés, sans filtrage.
+
+Arguments optionnels pour l'envoi distant (config partagée avec le client GUI, voir `README_data_how_they_are_send.md`) :
+
+```bash
+cargo run --release -- --remote-url http://mon-serveur/report --remote-token monjeton  # active et enregistre
+cargo run --release -- --remote-disable                                                 # désactive
+```
 
 ## Build & utilisation — Client GUI
 
 ```bash
 cd frontend && npm install
+cd ..
+cd src-tauri
 cargo tauri dev   # ou: npx --prefix frontend tauri dev
 ```
 
@@ -36,7 +61,6 @@ Matériel (CPU, RAM, disques, réseau, GPU, écrans, batterie, capteurs, Bluetoo
 - Fonctionnement du backend (modules de collecte, consentement, filtrage à l'export) : `README_backend_data_harvest.md`
 - Fonctionnement du client GUI (onglets, IPC, flux de consentement) : `README_frontend_client.md`
 - Comment les données sont envoyées/exportées (fichiers, historique SQLite, envoi HTTP distant) : `README_data_how_they_are_send.md`
-- Serveur de simulation Docker pour tester l'envoi HTTP distant sans serveur de réception réel : `README_server_test_with_docker.md`
 
 ## Consulter l'historique local (SQLite)
 
